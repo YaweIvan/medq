@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Subjects - MedQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+</head>
+<body>
+    @include('components.topnav')
+    @include('components.quizzer_sidebar')
+
+    <div class="main-content">
+        <div class="container-fluid">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold text-dark mb-2">{{ $quiz->title }}</h2>
+                <p class="text-muted">Select a subject to begin</p>
+            </div>
+
+            @if(session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
+            
+            <div class="row g-3">
+                @foreach($subjects as $subject)
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body text-center p-3">
+                                <div class="mb-2">
+                                    <i class="fas fa-book text-info" style="font-size: 2rem;"></i>
+                                </div>
+                                <h5 class="card-title text-dark mb-2">{{ $subject->name }}</h5>
+                                <p class="card-text mb-3">
+                                    <span class="badge bg-primary">{{ $subject->available_questions }} questions available</span>
+                                </p>
+                                @if($subject->available_questions > 0)
+                                    <a href="{{ route('quizzer.question.grid', [$quiz->id, $subject->id]) }}" class="btn btn-info px-3">
+                                        <i class="fas fa-th me-1"></i>View Questions Grid
+                                    </a>
+                                @else
+                                    <button class="btn btn-secondary px-3" disabled>
+                                        <i class="fas fa-lock me-1"></i>No Questions Available
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
