@@ -70,7 +70,10 @@
                                         <span class="input-group-text bg-light border-end-0">
                                             <i class="fas fa-lock text-muted"></i>
                                         </span>
-                                        <input type="password" name="password" class="form-control border-start-0" placeholder="Password" required>
+                                        <input type="password" name="password" id="password" class="form-control border-start-0 border-end-0" placeholder="Password" required>
+                                        <span class="input-group-text bg-light border-start-0" style="cursor: pointer;" onclick="togglePassword('password', this)">
+                                            <i class="fas fa-eye text-muted"></i>
+                                        </span>
                                     </div>
                                 </div>
                                 <div class="col-md-6 mb-4">
@@ -79,7 +82,10 @@
                                         <span class="input-group-text bg-light border-end-0">
                                             <i class="fas fa-lock text-muted"></i>
                                         </span>
-                                        <input type="password" name="password_confirmation" class="form-control border-start-0" placeholder="Confirm" required>
+                                        <input type="password" name="password_confirmation" id="password_confirmation" class="form-control border-start-0 border-end-0" placeholder="Confirm" required>
+                                        <span class="input-group-text bg-light border-start-0" style="cursor: pointer;" onclick="togglePassword('password_confirmation', this)">
+                                            <i class="fas fa-eye text-muted"></i>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -87,6 +93,22 @@
                                 <i class="fas fa-user-plus me-2"></i> Create Account
                             </button>
                         </form>
+                        
+                        <script>
+                        function togglePassword(inputId, icon) {
+                            const input = document.getElementById(inputId);
+                            const iconElement = icon.querySelector('i');
+                            if (input.type === 'password') {
+                                input.type = 'text';
+                                iconElement.classList.remove('fa-eye');
+                                iconElement.classList.add('fa-eye-slash');
+                            } else {
+                                input.type = 'password';
+                                iconElement.classList.remove('fa-eye-slash');
+                                iconElement.classList.add('fa-eye');
+                            }
+                        }
+                        </script>
                         
                         <div class="text-center mt-4 pt-3 border-top">
                             <p class="text-muted mb-0">Already have an account? 

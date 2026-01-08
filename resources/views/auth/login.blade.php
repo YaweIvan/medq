@@ -49,7 +49,7 @@
                             </div>
                         @endif
                         
-                        <!-- Demo Credentials -->
+                        <!-- Demo Credentials
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <div class="card bg-light border-0">
@@ -71,7 +71,7 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </div> -->
                         
                         <form method="POST" action="{{ route('login') }}">
                             @csrf
@@ -90,7 +90,10 @@
                                     <span class="input-group-text bg-light border-end-0">
                                         <i class="fas fa-lock text-muted"></i>
                                     </span>
-                                    <input type="password" name="password" id="password" class="form-control border-start-0" placeholder="Enter your password" required>
+                                    <input type="password" name="password" id="password" class="form-control border-start-0 border-end-0" placeholder="Enter your password" required>
+                                    <span class="input-group-text bg-light border-start-0" style="cursor: pointer;" onclick="togglePassword('password', this)">
+                                        <i class="fas fa-eye text-muted"></i>
+                                    </span>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold">
@@ -102,6 +105,20 @@
                         function fillCredentials(email, password) {
                             document.getElementById('email').value = email;
                             document.getElementById('password').value = password;
+                        }
+                        
+                        function togglePassword(inputId, icon) {
+                            const input = document.getElementById(inputId);
+                            const iconElement = icon.querySelector('i');
+                            if (input.type === 'password') {
+                                input.type = 'text';
+                                iconElement.classList.remove('fa-eye');
+                                iconElement.classList.add('fa-eye-slash');
+                            } else {
+                                input.type = 'password';
+                                iconElement.classList.remove('fa-eye-slash');
+                                iconElement.classList.add('fa-eye');
+                            }
                         }
                         </script>
                         

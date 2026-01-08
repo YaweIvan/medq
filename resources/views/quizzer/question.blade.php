@@ -49,57 +49,20 @@
             50% { opacity: 0.6; }
         }
         
-        .feedback-popup {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 2rem 3rem;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            z-index: 2000;
-            display: none;
-            text-align: center;
-        }
-        
-        .feedback-popup.correct {
-            border: 4px solid #10b981;
-        }
-        
-        .feedback-popup.incorrect {
-            border: 4px solid #ef4444;
-        }
-        
-        .feedback-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-        
-        .feedback-popup.correct .feedback-icon {
-            color: #10b981;
-        }
-        
-        .feedback-popup.incorrect .feedback-icon {
-            color: #ef4444;
-        }
+
     </style>
 </head>
 <body>
     @include('components.topnav')
     @include('components.quizzer_sidebar')
 
-    <!-- Question Timer -->
+    <!-- Total Quiz Timer -->
     <div class="question-timer">
-        <div class="question-timer-label">Time</div>
-        <div class="question-timer-display" id="questionTimer">30</div>
+        <div class="question-timer-label">Time Left</div>
+        <div class="question-timer-display" id="questionTimer">2:30</div>
     </div>
 
-    <!-- Feedback Popup -->
-    <div class="feedback-popup" id="feedbackPopup">
-        <div class="feedback-icon" id="feedbackIcon"></div>
-        <h3 id="feedbackText"></h3>
-    </div>
+
 
     <div class="main-content">
         <div class="container-fluid">
@@ -215,17 +178,42 @@ document.addEventListener('DOMContentLoaded', function() {
     const options = document.querySelectorAll('.option');
     const submitBtn = document.getElementById('submitAnswer');
     let selectedAnswer = null;
-    let questionTimeRemaining = 30;
     let questionTimerInterval;
     let hasSubmitted = false;
+    
+    // Total quiz timer (150 seconds = 2.5 minutes)
+    const quizKey = 'quiz_{{ $question->quiz_id }}_{{ $question->subject_id }}';
+    const timerKey = `${quizKey}_timer`;
+    const timerStartKey = `${quizKey}_timer_start`;
+    
+    // Initialize or retrieve timer
+    let totalTimeRemaining;
+    const savedTime = localStorage.getItem(timerKey);
+    const timerStart = localStorage.getItem(timerStartKey);
+    
+    if (savedTime && timerStart) {
+        // Calculate elapsed time since last save
+        const elapsed = Math.floor((Date.now() - parseInt(timerStart)) / 1000);
+        totalTimeRemaining = Math.max(0, parseInt(savedTime) - elapsed);
+    } else {
+        // First question - start with 150 seconds (2.5 minutes)
+        totalTimeRemaining = 150;
+    }
+    
+    // Save initial state
+    localStorage.setItem(timerKey, totalTimeRemaining.toString());
+    localStorage.setItem(timerStartKey, Date.now().toString());
 
-    // Start question timer
+    // Start total quiz timer
     function startQuestionTimer() {
+        updateQuestionTimer();
         questionTimerInterval = setInterval(() => {
-            questionTimeRemaining--;
+            totalTimeRemaining--;
+            localStorage.setItem(timerKey, totalTimeRemaining.toString());
+            localStorage.setItem(timerStartKey, Date.now().toString());
             updateQuestionTimer();
             
-            if (questionTimeRemaining <= 0) {
+            if (totalTimeRemaining <= 0) {
                 autoSubmit();
             }
         }, 1000);
@@ -233,11 +221,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateQuestionTimer() {
         const timerElement = document.getElementById('questionTimer');
-        timerElement.textContent = questionTimeRemaining;
+        const minutes = Math.floor(totalTimeRemaining / 60);
+        const seconds = totalTimeRemaining % 60;
+        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         
-        if (questionTimeRemaining <= 5) {
+        if (totalTimeRemaining <= 10) {
             timerElement.classList.add('danger');
-        } else if (questionTimeRemaining <= 10) {
+        } else if (totalTimeRemaining <= 30) {
             timerElement.classList.add('warning');
         }
     }
@@ -247,10 +237,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (hasSubmitted) return;
         
-        // If no answer selected, submit blank
+        // Show time's up alert
         if (!selectedAnswer) {
-            showFeedback(false, 'Time Up!', '{{ $question->correct_answer }}');
-            return;
+            alert("Time's Up!");
         }
         
         submitAnswer();
@@ -291,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({
                 question_id: {{ $question->id }},
                 selected_answer: selectedAnswer || '',
-                time_taken: 30 - questionTimeRemaining
+                time_taken: 30
             })
         })
         .then(response => response.json())
@@ -318,31 +307,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Show feedback popup
-            showFeedback(data.correct, data.correct ? '✅ Correct!' : '❌ Wrong!', data.correct_answer);
+            // Redirect back to grid
+            setTimeout(() => {
+                if (totalTimeRemaining <= 0) {
+                    localStorage.removeItem(timerKey);
+                    localStorage.removeItem(timerStartKey);
+                }
+                window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
+            }, 500);
         });
     }
 
-    function showFeedback(isCorrect, message, correctAnswer) {
-        const popup = document.getElementById('feedbackPopup');
-        const icon = document.getElementById('feedbackIcon');
-        const text = document.getElementById('feedbackText');
-        
-        popup.className = 'feedback-popup ' + (isCorrect ? 'correct' : 'incorrect');
-        icon.innerHTML = isCorrect ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-times-circle"></i>';
-        text.textContent = message;
-        
-        if (!isCorrect && !selectedAnswer) {
-            text.textContent = `Time's Up! Correct answer: ${correctAnswer}`;
-        }
-        
-        popup.style.display = 'block';
-        
-        // Redirect back to grid after 1.5 seconds
-        setTimeout(() => {
-            window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
-        }, 1500);
-    }
+
 
     // Initialize timer on page load
     startQuestionTimer();

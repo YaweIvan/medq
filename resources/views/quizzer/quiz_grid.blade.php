@@ -144,8 +144,7 @@
     <div class="start-quiz-overlay" id="startOverlay">
         <div class="start-quiz-card">
             <h3><i class="fas fa-clock me-2"></i>Ready to Start?</h3>
-            <p>You have <strong>3 minutes</strong> to answer <strong>5 questions</strong><br>
-            Each question has <strong>30 seconds</strong><br>
+            <p>You have <strong>2.5 minutes</strong> to answer <strong>5 questions</strong><br>
             Timer will start when you click below</p>
             <button class="btn btn-primary" onclick="startQuiz()">
                 <i class="fas fa-play me-2"></i>Start Quiz
@@ -156,7 +155,7 @@
     <!-- Total Quiz Timer -->
     <div class="timer-container" style="display: none;" id="timerContainer">
         <div class="timer-label">Time Left</div>
-        <div class="timer-display" id="totalTimer">3:00</div>
+        <div class="timer-display" id="totalTimer">2:30</div>
         <div class="timer-label mt-1" style="font-size: 0.65rem;">Q: <span id="questionsCount">{{ $attemptedCount }}/5</span></div>
     </div>
 
@@ -221,7 +220,7 @@
     </div>
 
     <script>
-        const TOTAL_TIME = 180; // 3 minutes in seconds
+        const TOTAL_TIME = 150; // 2.5 minutes in seconds
         const MAX_QUESTIONS = 5;
         let totalTimeRemaining = TOTAL_TIME;
         let timerInterval;

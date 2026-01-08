@@ -46,9 +46,11 @@
             <a href="{{ route('admin.leaderboard') }}" class="stat-card-compact info">
                 <h6>Leaderboard Top 3</h6>
                 <ul class="leaderboard-list-compact">
-                    <li><span class="rank">1</span> John Doe <strong>95%</strong></li>
-                    <li><span class="rank">2</span> Jane Smith <strong>92%</strong></li>
-                    <li><span class="rank">3</span> Mary Lee <strong>90%</strong></li>
+                    @forelse($topUsers as $index => $user)
+                        <li><span class="rank">{{ $index + 1 }}</span> {{ $user->name }} <strong>{{ number_format($user->accuracy, 0) }}%</strong></li>
+                    @empty
+                        <li class="text-muted">No quiz attempts yet</li>
+                    @endforelse
                 </ul>
             </a>
         </div>

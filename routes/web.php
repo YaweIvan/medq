@@ -4,6 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\QuizzerController;
+use App\Http\Controllers\StatisticsApiController;
+
+Route::get('/quizzer/stats', [StatisticsApiController::class, 'index']);
+
 
 // Public routes
 Route::get('/', function () {
@@ -31,9 +35,19 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::delete('/delete-user/{id}', [AdminController::class, 'deleteUser'])->name('delete-user');
     Route::get('/statistics', [AdminController::class, 'statistics'])->name('statistics');
     Route::get('/leaderboard', [AdminController::class, 'leaderboard'])->name('leaderboard');
+    Route::get('/leaderboard/{quiz}', [AdminController::class, 'quizLeaderboard'])->name('quiz.leaderboard');
+    Route::get('/leaderboard/{quiz}/student/{user}', [AdminController::class, 'studentQuizDetails'])->name('student.quiz.details');
     Route::get('/tutorial', function() { return view('admin.tutorial'); })->name('tutorial');
     Route::get('/users/api', [AdminController::class, 'getUsersApi'])->name('users.api');
     Route::get('/download-template', [AdminController::class, 'downloadTemplate'])->name('download.template');
+    
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/quiz-stats', [\App\Http\Controllers\StatisticsApiController::class, 'quizStats']);
+        Route::get('/quiz-participation', [\App\Http\Controllers\StatisticsApiController::class, 'quizParticipation']);
+        Route::get('/quiz-leaderboard/{quiz}', [\App\Http\Controllers\StatisticsApiController::class, 'quizLeaderboardData']);
+        Route::get('/leaderboard', [\App\Http\Controllers\StatisticsApiController::class, 'leaderboard']);
+        Route::get('/subject-performance', [\App\Http\Controllers\StatisticsApiController::class, 'subjectPerformance']);
+    });
     
     Route::prefix('quizzes')->name('quizzes.')->group(function () {
         Route::get('/', [AdminController::class, 'quizzes'])->name('index');
@@ -61,4 +75,16 @@ Route::prefix('quizzer')->middleware(['auth', 'quizzer'])->name('quizzer.')->gro
     Route::post('/submit-answer', [QuizzerController::class, 'submitAnswer'])->name('submit.answer');
     Route::get('/statistics', [QuizzerController::class, 'statistics'])->name('statistics');
     Route::get('/tutorial', function() { return view('quizzer.tutorial'); })->name('tutorial');
+    
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/my-stats', function() {
+            return app(\App\Http\Controllers\StatisticsApiController::class)->userStats(auth()->id());
+        });
+        Route::get('/my-subjects', function() {
+            return app(\App\Http\Controllers\StatisticsApiController::class)->userSubjects(auth()->id());
+        });
+        Route::get('/my-rankings', function() {
+            return app(\App\Http\Controllers\StatisticsApiController::class)->userRankingsPerQuiz(auth()->id());
+        });
+    });
 });

@@ -167,7 +167,7 @@
 
                             
                             <a href="{{ route('login') }}" class="btn btn-lg w-100 fw-semibold" style="background: #93c5fd; color: white;">
-                                <img src="https://cdn-icons-png.flaticon.com/512/9068/9068642.png" style="width: 20px; height: 20px; margin-right: 8px; filter: brightness(0) invert(1);">Admin Login
+                                <img src="https://cdn-icons-png.flaticon.com/128/3206/3206130.png" style="width: 20px; height: 20px; margin-right: 8px; filter: brightness(0) invert(1);">Admin Login
                             </a>
                         </div>
                     </div>
@@ -175,7 +175,7 @@
                     <div class="col-lg-5 col-md-6">
                         <div class="login-card text-center">
                             <div class="card-icon">
-                                <img src="https://cdn-icons-png.flaticon.com/512/3976/3976625.png" style="width: 48px; height: 48px;">
+                                <img src="https://cdn-icons-png.flaticon.com/128/3135/3135810.png" style="width: 48px; height: 48px;">
                             </div>
                             <h3 class="fw-bold mb-3" style="color: #1e293b;">Student Portal</h3>
                             <p class="mb-4" style="color: #64748b;">Access assigned quizzes, track your progress, and enhance your medical knowledge through interactive learning.</p>
@@ -194,7 +194,7 @@
                     <div class="border-top pt-4" style="border-color: #e5e7eb !important;">
                         <p class="mb-3" style="color: #64748b;">New to MedQ? Join thousands of medical professionals</p>
                         <a href="{{ route('register') }}" class="btn btn-success btn-lg px-5">
-                            <img src="https://cdn-icons-png.flaticon.com/512/1828/1828817.png" style="width: 20px; height: 20px; margin-right: 8px; filter: brightness(0) invert(1);">Create Free Account
+                            <img src="https://cdn-icons-png.flaticon.com/128/14616/14616849.png" style="width: 20px; height: 20px; margin-right: 8px; filter: brightness(0) invert(1);">Create Free Account
                         </a>
                     </div>
                 </div>

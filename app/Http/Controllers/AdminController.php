@@ -23,7 +23,23 @@ class AdminController extends Controller
             'total_questions' => Question::count(),
         ];
         
-        return view('admin.dashboard', compact('stats'));
+        // Get top 3 users by correct answers across all quizzes
+        $topUsers = User::where('role', 'quizzer')
+            ->withCount(['attempts as total_attempts'])
+            ->withCount(['attempts as correct_answers' => function($q) {
+                $q->where('is_correct', true);
+            }])
+            ->having('total_attempts', '>', 0)
+            ->get()
+            ->map(function($user) {
+                $user->accuracy = round(($user->correct_answers / $user->total_attempts) * 100, 2);
+                return $user;
+            })
+            ->sortByDesc('accuracy')
+            ->take(3)
+            ->values();
+        
+        return view('admin.dashboard', compact('stats', 'topUsers'));
     }
 
     public function approvals()
@@ -344,15 +360,64 @@ class AdminController extends Controller
 
     public function leaderboard()
     {
-        $leaderboard = User::where('role', 'quizzer')
-            ->withCount(['attempts as correct_answers' => function($query) {
-                $query->where('is_correct', true);
-            }])
-            ->withCount('attempts as total_attempts')
-            ->orderBy('correct_answers', 'desc')
+        $quizzes = Quiz::withCount('questions')
+            ->withCount(['attempts as total_attempts'])
+            ->withCount(['users as participants_count'])
             ->get();
 
-        return view('admin.leaderboard', compact('leaderboard'));
+        return view('admin.leaderboard', compact('quizzes'));
+    }
+
+    public function quizLeaderboard($quizId)
+    {
+        $quiz = Quiz::with('questions', 'users')->findOrFail($quizId);
+        
+        $leaderboard = User::where('role', 'quizzer')
+            ->whereHas('quizzes', function($q) use ($quizId) {
+                $q->where('quizzes.id', $quizId);
+            })
+            ->withCount(['attempts as total_attempts' => function($q) use ($quizId) {
+                $q->where('quiz_id', $quizId);
+            }])
+            ->withCount(['attempts as correct_answers' => function($q) use ($quizId) {
+                $q->where('quiz_id', $quizId)->where('is_correct', true);
+            }])
+            ->withCount(['attempts as failed_answers' => function($q) use ($quizId) {
+                $q->where('quiz_id', $quizId)->where('is_correct', false);
+            }])
+            ->get()
+            ->map(function($user) {
+                $user->accuracy = $user->total_attempts > 0 
+                    ? round(($user->correct_answers / $user->total_attempts) * 100, 2) 
+                    : 0;
+                return $user;
+            })
+            ->sortByDesc('correct_answers')
+            ->values();
+
+        return view('admin.quiz_leaderboard', compact('quiz', 'leaderboard'));
+    }
+
+    public function studentQuizDetails($quizId, $userId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $user = User::findOrFail($userId);
+        
+        $attempts = QuizAttempt::where('quiz_id', $quizId)
+            ->where('user_id', $userId)
+            ->with(['question' => function($q) {
+                $q->with('subject');
+            }])
+            ->get();
+        
+        $stats = [
+            'total' => $attempts->count(),
+            'correct' => $attempts->where('is_correct', true)->count(),
+            'failed' => $attempts->where('is_correct', false)->count(),
+            'accuracy' => $attempts->count() > 0 ? round(($attempts->where('is_correct', true)->count() / $attempts->count()) * 100, 2) : 0
+        ];
+
+        return view('admin.student_quiz_details', compact('quiz', 'user', 'attempts', 'stats'));
     }
 
     public function randomizer()

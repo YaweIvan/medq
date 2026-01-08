@@ -142,7 +142,7 @@ function showDemo(selectedAnswer) {
             btn.style.backgroundColor = 'white';
             btn.classList.remove('correct', 'incorrect');
         });
-    }, 3000);
+    }, 2500);
 }
 </script>
 @endsection

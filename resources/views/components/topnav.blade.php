@@ -9,6 +9,17 @@
         </div>
     </div>
     <div class="nav-actions">
+        @if(auth()->user()->isAdmin())
+            @php
+                $pendingCount = \App\Models\User::where('is_approved', false)->count();
+            @endphp
+            @if($pendingCount > 0)
+                <a href="{{ route('admin.approvals') }}" class="btn btn-warning btn-sm me-2" title="Pending Approvals">
+                    <i class="fas fa-user-clock"></i>
+                    <span class="badge bg-danger ms-1">{{ $pendingCount }}</span>
+                </a>
+            @endif
+        @endif
         <span class="me-3 d-none d-sm-inline">Welcome, {{ auth()->user()->name }}</span>
         <form method="POST" action="{{ route('logout') }}" class="d-inline">
             @csrf
