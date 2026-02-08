@@ -108,6 +108,14 @@
                                                         <i class="fas fa-check-circle float-end"></i>
                                                     @endif
                                                 </div>
+                                                @if($attempt->question->option_e)
+                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'E' ? 'bg-success text-white' : 'bg-light' }}">
+                                                    <strong>E:</strong> {{ $attempt->question->option_e }}
+                                                    @if($attempt->selected_answer == 'E')
+                                                        <i class="fas fa-check-circle float-end"></i>
+                                                    @endif
+                                                </div>
+                                                @endif
                                             </div>
                                             <div class="mt-2">
                                                 <small class="text-muted">Selected Answer: <strong class="text-success">{{ $attempt->selected_answer }}</strong></small>
@@ -177,6 +185,17 @@
                                                         <i class="fas fa-check-circle float-end"></i>
                                                     @endif
                                                 </div>
+                                                @if($attempt->question->option_e)
+                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'E' ? 'bg-success text-white' : ($attempt->selected_answer == 'E' ? 'bg-danger text-white' : 'bg-light') }}">
+                                                    <strong>E:</strong> {{ $attempt->question->option_e }}
+                                                    @if($attempt->selected_answer == 'E')
+                                                        <i class="fas fa-times-circle float-end"></i>
+                                                    @endif
+                                                    @if($attempt->question->correct_answer == 'E')
+                                                        <i class="fas fa-check-circle float-end"></i>
+                                                    @endif
+                                                </div>
+                                                @endif
                                             </div>
                                             <div class="mt-2">
                                                 <small class="text-muted">Selected: <strong class="text-danger">{{ $attempt->selected_answer }}</strong> | Correct: <strong class="text-success">{{ $attempt->question->correct_answer }}</strong></small>

@@ -140,25 +140,6 @@
     @include('components.topnav')
     @include('components.quizzer_sidebar')
 
-    <!-- Start Quiz Overlay -->
-    <div class="start-quiz-overlay" id="startOverlay">
-        <div class="start-quiz-card">
-            <h3><i class="fas fa-clock me-2"></i>Ready to Start?</h3>
-            <p>You have <strong>2.5 minutes</strong> to answer <strong>5 questions</strong><br>
-            Timer will start when you click below</p>
-            <button class="btn btn-primary" onclick="startQuiz()">
-                <i class="fas fa-play me-2"></i>Start Quiz
-            </button>
-        </div>
-    </div>
-
-    <!-- Total Quiz Timer -->
-    <div class="timer-container" style="display: none;" id="timerContainer">
-        <div class="timer-label">Time Left</div>
-        <div class="timer-display" id="totalTimer">2:30</div>
-        <div class="timer-label mt-1" style="font-size: 0.65rem;">Q: <span id="questionsCount">{{ $attemptedCount }}/5</span></div>
-    </div>
-
     <div class="main-content">
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -220,99 +201,13 @@
     </div>
 
     <script>
-        const TOTAL_TIME = 150; // 2.5 minutes in seconds
         const MAX_QUESTIONS = 5;
-        let totalTimeRemaining = TOTAL_TIME;
-        let timerInterval;
-        let quizStarted = false;
-        const quizKey = 'quiz_{{ $quiz->id }}_{{ $subject->id }}';
-        const startTimeKey = `${quizKey}_start`;
-        const questionsKey = `${quizKey}_questions`;
-
-        function startQuiz() {
-            // Hide overlay, show timer
-            document.getElementById('startOverlay').style.display = 'none';
-            document.getElementById('timerContainer').style.display = 'block';
-            
-            // Mark quiz as started
-            quizStarted = true;
-            localStorage.setItem(startTimeKey, Date.now().toString());
-            localStorage.setItem(questionsKey, '{{ $attemptedCount }}');
-            
-            // Start the timer
-            totalTimeRemaining = TOTAL_TIME;
-            startTimer();
-        }
-
-        function initializeTimer() {
-            const startTime = localStorage.getItem(startTimeKey);
-            
-            if (startTime) {
-                // Quiz already started, restore timer
-                const elapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000);
-                totalTimeRemaining = Math.max(0, TOTAL_TIME - elapsed);
-                
-                if (totalTimeRemaining > 0) {
-                    quizStarted = true;
-                    document.getElementById('startOverlay').style.display = 'none';
-                    document.getElementById('timerContainer').style.display = 'block';
-                    updateTimerDisplay();
-                    startTimer();
-                } else {
-                    // Time expired
-                    endQuiz('timeout');
-                }
-            } else {
-                // Show start overlay
-                document.getElementById('startOverlay').style.display = 'flex';
-            }
-        }
-
-        function startTimer() {
-            if (timerInterval) clearInterval(timerInterval);
-            
-            timerInterval = setInterval(() => {
-                totalTimeRemaining--;
-                updateTimerDisplay();
-                
-                if (totalTimeRemaining <= 0) {
-                    endQuiz('timeout');
-                }
-            }, 1000);
-        }
-
-        function updateTimerDisplay() {
-            const minutes = Math.floor(totalTimeRemaining / 60);
-            const seconds = totalTimeRemaining % 60;
-            const display = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            
-            const timerElement = document.getElementById('totalTimer');
-            timerElement.textContent = display;
-            
-            if (totalTimeRemaining <= 30) {
-                timerElement.classList.add('danger');
-            } else if (totalTimeRemaining <= 60) {
-                timerElement.classList.add('warning');
-            }
-        }
 
         function attemptQuestion(questionId) {
-            if (!quizStarted) {
-                alert('Please start the quiz first by clicking the Start Quiz button!');
-                return;
-            }
-            
-            const currentQuestions = parseInt(localStorage.getItem(questionsKey) || '{{ $attemptedCount }}');
-            
-            if (currentQuestions >= MAX_QUESTIONS) {
-                alert('You have completed all 5 questions!');
-                endQuiz('complete');
-                return;
-            }
-            
-            if (totalTimeRemaining <= 0) {
-                alert('Time is up!');
-                endQuiz('timeout');
+            // Check if 5 questions already completed
+            if ({{ $attemptedCount }} >= MAX_QUESTIONS) {
+                alert('You have completed all 5 questions for this subject!');
+                window.location.href = '{{ route("quizzer.quiz.subjects", $quiz->id) }}';
                 return;
             }
             
@@ -321,33 +216,14 @@
             }
         }
 
-        function endQuiz(reason) {
-            clearInterval(timerInterval);
-            localStorage.removeItem(startTimeKey);
-            localStorage.removeItem(questionsKey);
-            
-            const message = reason === 'timeout' 
-                ? 'Time is up! Quiz has ended.' 
-                : 'Congratulations! You completed all 5 questions!';
-            
-            alert(message);
-            window.location.href = '{{ route("quizzer.quiz.subjects", $quiz->id) }}';
-        }
-
-        // Check if quiz should auto-end
-        function checkQuizStatus() {
-            const currentQuestions = parseInt(localStorage.getItem(questionsKey) || '{{ $attemptedCount }}');
-            document.getElementById('questionsCount').textContent = `${currentQuestions}/5`;
-            
-            if (currentQuestions >= MAX_QUESTIONS) {
-                setTimeout(() => endQuiz('complete'), 1000);
-            }
-        }
-
-        // Initialize on page load
+        // Check if quiz is complete on page load
         document.addEventListener('DOMContentLoaded', function() {
-            initializeTimer();
-            checkQuizStatus();
+            if ({{ $attemptedCount }} >= MAX_QUESTIONS) {
+                setTimeout(() => {
+                    alert('Congratulations! You completed all 5 questions for this subject!');
+                    window.location.href = '{{ route("quizzer.quiz.subjects", $quiz->id) }}';
+                }, 500);
+            }
         });
     </script>
 

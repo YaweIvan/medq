@@ -132,23 +132,23 @@
                                 <i class="fas fa-download"></i> Download Sample Template
                             </a>
                         </div>
-                        <p class="mb-2 fw-bold">Your file MUST have EXACTLY 7 columns in this order:</p>
+                        <p class="mb-2 fw-bold">Your file MUST have 7 or 8 columns in this order:</p>
                         <div class="table-responsive">
                             <table class="table table-sm table-bordered bg-white mb-2">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>Column A</th><th>Column B</th><th>Column C</th><th>Column D</th><th>Column E</th><th>Column F</th><th>Column G</th>
+                                        <th>Column A</th><th>Column B</th><th>Column C</th><th>Column D</th><th>Column E</th><th>Column F</th><th>Column G</th><th>Column H</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr class="fw-bold bg-light">
-                                        <td>Number</td><td>Question</td><td>Option A</td><td>Option B</td><td>Option C</td><td>Option D</td><td>Answer</td>
+                                        <td>Number</td><td>Question</td><td>Option A</td><td>Option B</td><td>Option C</td><td>Option D</td><td>Option E</td><td>Answer</td>
                                     </tr>
                                     <tr>
-                                        <td>1</td><td>What is the normal heart rate?</td><td>60-100 bpm</td><td>40-60 bpm</td><td>100-120 bpm</td><td>120-140 bpm</td><td>A</td>
+                                        <td>1</td><td>What is the normal heart rate?</td><td>60-100 bpm</td><td>40-60 bpm</td><td>100-120 bpm</td><td>120-140 bpm</td><td><em>(leave empty)</em></td><td>A</td>
                                     </tr>
                                     <tr>
-                                        <td>2</td><td>Which organ produces insulin?</td><td>Liver</td><td>Pancreas</td><td>Kidney</td><td>Spleen</td><td>B</td>
+                                        <td>2</td><td>Which organ produces insulin?</td><td>Liver</td><td>Pancreas</td><td>Kidney</td><td>Spleen</td><td>Heart</td><td>B</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -157,21 +157,21 @@
                             <div class="col-md-6">
                                 <strong class="text-success">✓ REQUIRED:</strong>
                                 <ul class="small mb-0">
-                                    <li>Exactly 7 columns (A to G)</li>
+                                    <li>7 or 8 columns (A to G or A to H)</li>
                                     <li>First row = headers</li>
-                                    <li>Answer column: A, B, C, or D only</li>
-                                    <li>No empty cells in data rows</li>
+                                    <li>Answer column: A, B, C, D, or E</li>
+                                    <li>Option E is optional (can be empty)</li>
                                     <li>File format: .xlsx or .csv</li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
                                 <strong class="text-danger">✗ AVOID:</strong>
                                 <ul class="small mb-0">
-                                    <li>Extra columns beyond G</li>
+                                    <li>More than 8 columns</li>
                                     <li>Empty rows between questions</li>
                                     <li>Numbers/symbols in Answer column</li>
                                     <li>Merged cells or formatting</li>
-                                    <li>Special characters in text</li>
+                                    <li>Answer E without Option E text</li>
                                 </ul>
                             </div>
                         </div>

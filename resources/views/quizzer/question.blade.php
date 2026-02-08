@@ -13,30 +13,34 @@
             top: 80px;
             right: 20px;
             background: #ffffff;
-            padding: 0.5rem 1rem;
+            padding: 0.75rem 1.25rem;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             z-index: 1000;
-            min-width: 100px;
+            min-width: 120px;
             text-align: center;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .question-timer.danger {
+            border-color: #ef4444;
+            background: #fee2e2;
         }
         
         .question-timer-label {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             color: #6b7280;
-            margin-bottom: 0.1rem;
+            margin-bottom: 0.25rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            font-weight: 600;
         }
         
         .question-timer-display {
-            font-size: 1.5rem;
+            font-size: 2rem;
             font-weight: 700;
             color: #1f2937;
-        }
-        
-        .question-timer-display.warning {
-            color: #f59e0b;
         }
         
         .question-timer-display.danger {
@@ -46,23 +50,68 @@
         
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+            50% { opacity: 0.5; }
         }
         
-
+        .timer-warning-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .timer-warning-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .timer-warning-card h3 {
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+        
+        .timer-warning-card p {
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+        }
+        
+        .timer-warning-card .btn {
+            padding: 0.75rem 2rem;
+            font-size: 1.1rem;
+        }
     </style>
 </head>
 <body>
     @include('components.topnav')
     @include('components.quizzer_sidebar')
 
-    <!-- Total Quiz Timer -->
-    <div class="question-timer">
-        <div class="question-timer-label">Time Left</div>
-        <div class="question-timer-display" id="questionTimer">2:30</div>
+    <!-- Timer Warning Overlay -->
+    <div class="timer-warning-overlay" id="timerWarning">
+        <div class="timer-warning-card">
+            <h3><i class="fas fa-stopwatch text-primary me-2"></i>Timer Starting!</h3>
+            <p>Once you click "Start", the timer will begin counting down.<br>
+            <strong>You will have 30 seconds</strong> to answer this question.</p>
+            <button class="btn btn-primary" onclick="startTimer()">
+                <i class="fas fa-play me-2"></i>Start Timer
+            </button>
+        </div>
     </div>
 
-
+    <!-- Question Timer -->
+    <div class="question-timer" id="timerContainer" style="display: none;">
+        <div class="question-timer-label">Time Left</div>
+        <div class="question-timer-display" id="questionTimer">30</div>
+    </div>
 
     <div class="main-content">
         <div class="container-fluid">
@@ -98,6 +147,12 @@
                                 <span class="option-label">D</span>
                                 <span class="option-text">{{ $question->option_d }}</span>
                             </div>
+                            @if($question->option_e)
+                            <div class="option" data-answer="E">
+                                <span class="option-label">E</span>
+                                <span class="option-text">{{ $question->option_e }}</span>
+                            </div>
+                            @endif
                         </div>
                         
                         <button id="submitAnswer" class="btn btn-primary mt-4" disabled>
@@ -180,55 +235,51 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedAnswer = null;
     let questionTimerInterval;
     let hasSubmitted = false;
-    
-    // Total quiz timer (150 seconds = 2.5 minutes)
-    const quizKey = 'quiz_{{ $question->quiz_id }}_{{ $question->subject_id }}';
-    const timerKey = `${quizKey}_timer`;
-    const timerStartKey = `${quizKey}_timer_start`;
-    
-    // Initialize or retrieve timer
-    let totalTimeRemaining;
-    const savedTime = localStorage.getItem(timerKey);
-    const timerStart = localStorage.getItem(timerStartKey);
-    
-    if (savedTime && timerStart) {
-        // Calculate elapsed time since last save
-        const elapsed = Math.floor((Date.now() - parseInt(timerStart)) / 1000);
-        totalTimeRemaining = Math.max(0, parseInt(savedTime) - elapsed);
-    } else {
-        // First question - start with 150 seconds (2.5 minutes)
-        totalTimeRemaining = 150;
-    }
-    
-    // Save initial state
-    localStorage.setItem(timerKey, totalTimeRemaining.toString());
-    localStorage.setItem(timerStartKey, Date.now().toString());
+    let timeRemaining = 30; // 30 seconds per question
+    let timerStarted = false;
 
-    // Start total quiz timer
-    function startQuestionTimer() {
-        updateQuestionTimer();
+    // Disable options until timer starts
+    options.forEach(opt => opt.style.pointerEvents = 'none');
+    submitBtn.style.pointerEvents = 'none';
+
+    // Function to start the timer
+    window.startTimer = function() {
+        // Hide warning overlay
+        document.getElementById('timerWarning').style.display = 'none';
+        
+        // Show timer
+        document.getElementById('timerContainer').style.display = 'block';
+        
+        // Enable options
+        options.forEach(opt => opt.style.pointerEvents = 'auto');
+        submitBtn.style.pointerEvents = 'auto';
+        
+        timerStarted = true;
+        startCountdown();
+    };
+
+    function startCountdown() {
+        updateTimerDisplay();
         questionTimerInterval = setInterval(() => {
-            totalTimeRemaining--;
-            localStorage.setItem(timerKey, totalTimeRemaining.toString());
-            localStorage.setItem(timerStartKey, Date.now().toString());
-            updateQuestionTimer();
+            timeRemaining--;
+            updateTimerDisplay();
             
-            if (totalTimeRemaining <= 0) {
+            if (timeRemaining <= 0) {
                 autoSubmit();
             }
         }, 1000);
     }
 
-    function updateQuestionTimer() {
+    function updateTimerDisplay() {
         const timerElement = document.getElementById('questionTimer');
-        const minutes = Math.floor(totalTimeRemaining / 60);
-        const seconds = totalTimeRemaining % 60;
-        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        const timerContainer = document.getElementById('timerContainer');
         
-        if (totalTimeRemaining <= 10) {
+        timerElement.textContent = timeRemaining;
+        
+        // Turn red when 10 seconds or below
+        if (timeRemaining <= 10) {
             timerElement.classList.add('danger');
-        } else if (totalTimeRemaining <= 30) {
-            timerElement.classList.add('warning');
+            timerContainer.classList.add('danger');
         }
     }
 
@@ -237,17 +288,33 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (hasSubmitted) return;
         
-        // Show time's up alert
-        if (!selectedAnswer) {
-            alert("Time's Up!");
-        }
+        hasSubmitted = true;
         
-        submitAnswer();
+        // Submit empty answer on timeout - no alert, immediate redirect
+        fetch('{{ route("quizzer.submit.answer") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                question_id: {{ $question->id }},
+                selected_answer: '',
+                time_taken: 30
+            })
+        })
+        .then(() => {
+            window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
+        })
+        .catch(() => {
+            // Even on error, redirect back to grid
+            window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
+        });
     }
 
     options.forEach(option => {
         option.addEventListener('click', function() {
-            if (hasSubmitted) return;
+            if (hasSubmitted || !timerStarted) return;
             
             options.forEach(opt => opt.classList.remove('selected'));
             this.classList.add('selected');
@@ -257,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     submitBtn.addEventListener('click', function() {
-        if (hasSubmitted) return;
+        if (hasSubmitted || !timerStarted) return;
         submitAnswer();
     });
 
@@ -280,17 +347,11 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({
                 question_id: {{ $question->id }},
                 selected_answer: selectedAnswer || '',
-                time_taken: 30
+                time_taken: 30 - timeRemaining
             })
         })
         .then(response => response.json())
         .then(data => {
-            // Update localStorage for question count
-            const quizKey = 'quiz_{{ $question->quiz_id }}_{{ $question->subject_id }}';
-            const questionsKey = `${quizKey}_questions`;
-            const currentCount = parseInt(localStorage.getItem(questionsKey) || '0');
-            localStorage.setItem(questionsKey, (currentCount + 1).toString());
-            
             // Show visual feedback on options
             if (selectedAnswer) {
                 const selectedOption = document.querySelector('.option.selected');
@@ -309,19 +370,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Redirect back to grid
             setTimeout(() => {
-                if (totalTimeRemaining <= 0) {
-                    localStorage.removeItem(timerKey);
-                    localStorage.removeItem(timerStartKey);
-                }
                 window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
-            }, 500);
+            }, 1500);
         });
     }
-
-
-
-    // Initialize timer on page load
-    startQuestionTimer();
 });
 </script>
 

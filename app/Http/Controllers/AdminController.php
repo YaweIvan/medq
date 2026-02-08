@@ -122,7 +122,20 @@ class AdminController extends Controller
                     return response()->json(['success' => false, 'message' => 'Subject name is required'], 400);
                 }
                 
-                $subject = Subject::firstOrCreate(['name' => $subjectData['name']]);
+                // Log the subject data for debugging
+                \Log::info("Processing subject {$index}: " . $subjectData['name']);
+                
+                // Trim and validate subject name
+                $subjectName = trim($subjectData['name']);
+                
+                // Prevent invalid subject names
+                $invalidNames = ['option e', 'option a', 'option b', 'option c', 'option d', 'correct answer', 'answer', 'number', 'question'];
+                if (in_array(strtolower($subjectName), $invalidNames)) {
+                    \DB::rollBack();
+                    return response()->json(['success' => false, 'message' => "Invalid subject name: '{$subjectName}'. This appears to be a column header from your Excel file. Please enter a proper subject name (e.g., Anatomy, Cardiology)."], 400);
+                }
+                
+                $subject = Subject::firstOrCreate(['name' => $subjectName]);
                 
                 if (isset($subjectData['file'])) {
                     $questionsCreated = $this->processExcelFile($subjectData['file'], $quiz->id, $subject->id);
@@ -213,6 +226,7 @@ class AdminController extends Controller
                 }
                 
                 // Ensure we have at least 7 columns (Number, Question, A, B, C, D, Answer)
+                // Can have 8 columns if Option E is included (Number, Question, A, B, C, D, E, Answer)
                 if (count($data) >= 7) {
                     // Clean up the data
                     $questionText = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[1] ?? ''));
@@ -220,13 +234,33 @@ class AdminController extends Controller
                     $optionB = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[3] ?? ''));
                     $optionC = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[4] ?? ''));
                     $optionD = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[5] ?? ''));
-                    $correctAnswer = strtoupper(trim($data[6] ?? ''));
                     
-                    // Validate the data
-                    if (!empty($questionText) && !empty($optionA) && !empty($optionB) && 
-                        !empty($optionC) && !empty($optionD) && in_array($correctAnswer, ['A', 'B', 'C', 'D'])) {
+                    // Check if we have 8 columns (with option E) or 7 columns (without)
+                    if (count($data) >= 8) {
+                        // 8 columns: Number, Question, A, B, C, D, E, Answer
+                        $optionE = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[6]));
+                        $correctAnswer = strtoupper(trim($data[7] ?? ''));
+                        if (empty($optionE)) {
+                            $optionE = null;
+                        }
+                    } else {
+                        // 7 columns: Number, Question, A, B, C, D, Answer (no option E)
+                        $optionE = null;
+                        $correctAnswer = strtoupper(trim($data[6] ?? ''));
+                    }
+                    
+                    // Validate the data - option E is optional
+                    $hasValidOptions = !empty($questionText) && !empty($optionA) && !empty($optionB) && !empty($optionC) && !empty($optionD);
+                    $hasValidAnswer = in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E']);
+                    
+                    // If answer is E, option E must be present
+                    if ($correctAnswer === 'E' && empty($optionE)) {
+                        $hasValidAnswer = false;
+                    }
+                    
+                    if ($hasValidOptions && $hasValidAnswer) {
                         try {
-                            Question::create([
+                            $questionData = [
                                 'quiz_id' => $quizId,
                                 'subject_id' => $subjectId,
                                 'question' => $questionText,
@@ -235,7 +269,13 @@ class AdminController extends Controller
                                 'option_c' => $optionC,
                                 'option_d' => $optionD,
                                 'correct_answer' => $correctAnswer,
-                            ]);
+                            ];
+                            
+                            if (!empty($optionE)) {
+                                $questionData['option_e'] = $optionE;
+                            }
+                            
+                            Question::create($questionData);
                             $questionsCreated++;
                             if ($row <= 3) {
                                 Log::info('Question ' . $row . ' created successfully');
@@ -265,6 +305,8 @@ class AdminController extends Controller
     private function processExcelFileContent($file, $quizId, $subjectId)
     {
         $questionsCreated = 0;
+        $questionsSkipped = 0;
+        $skippedReasons = [];
         $filePath = $file->getRealPath();
         
         try {
@@ -281,7 +323,7 @@ class AdminController extends Controller
             // Process each row (skip header row)
             for ($row = 2; $row <= $highestRow; $row++) {
                 $rowData = $worksheet->rangeToArray(
-                    'A' . $row . ':G' . $row,
+                    'A' . $row . ':H' . $row,
                     NULL,
                     TRUE,
                     FALSE
@@ -291,20 +333,40 @@ class AdminController extends Controller
                     Log::info("Row {$row} data: " . json_encode($rowData));
                 }
                 
-                // Ensure we have at least 7 columns
+                // Ensure we have at least 7 columns (can have 8 for option E)
                 if (count($rowData) >= 7) {
                     $questionText = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[1] ?? ''));
                     $optionA = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[2] ?? ''));
                     $optionB = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[3] ?? ''));
                     $optionC = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[4] ?? ''));
                     $optionD = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[5] ?? ''));
-                    $correctAnswer = strtoupper(trim($rowData[6] ?? ''));
                     
-                    // Validate the data
-                    if (!empty($questionText) && !empty($optionA) && !empty($optionB) && 
-                        !empty($optionC) && !empty($optionD) && in_array($correctAnswer, ['A', 'B', 'C', 'D'])) {
+                    // Check if we have 8 columns (with option E) or 7 columns (without)
+                    if (count($rowData) >= 8) {
+                        // 8 columns: Number, Question, A, B, C, D, E, Answer
+                        $optionE = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[6]));
+                        $correctAnswer = strtoupper(trim($rowData[7] ?? ''));
+                        if (empty($optionE)) {
+                            $optionE = null;
+                        }
+                    } else {
+                        // 7 columns: Number, Question, A, B, C, D, Answer (no option E)
+                        $optionE = null;
+                        $correctAnswer = strtoupper(trim($rowData[6] ?? ''));
+                    }
+                    
+                    // Validate the data - option E is optional
+                    $hasValidOptions = !empty($questionText) && !empty($optionA) && !empty($optionB) && !empty($optionC) && !empty($optionD);
+                    $hasValidAnswer = in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E']);
+                    
+                    // If answer is E, option E must be present
+                    if ($correctAnswer === 'E' && empty($optionE)) {
+                        $hasValidAnswer = false;
+                    }
+                    
+                    if ($hasValidOptions && $hasValidAnswer) {
                         try {
-                            Question::create([
+                            $questionData = [
                                 'quiz_id' => $quizId,
                                 'subject_id' => $subjectId,
                                 'question' => $questionText,
@@ -313,27 +375,57 @@ class AdminController extends Controller
                                 'option_c' => $optionC,
                                 'option_d' => $optionD,
                                 'correct_answer' => $correctAnswer,
-                            ]);
+                            ];
+                            
+                            if (!empty($optionE)) {
+                                $questionData['option_e'] = $optionE;
+                            }
+                            
+                            Question::create($questionData);
                             $questionsCreated++;
                             if ($row <= 4) {
                                 Log::info("Question from row {$row} created successfully");
                             }
                         } catch (\Exception $e) {
                             Log::error("Question creation error on row {$row}: " . $e->getMessage());
+                            $questionsSkipped++;
+                            $skippedReasons[] = "Row {$row}: Database error - " . $e->getMessage();
                         }
                     } else {
-                        if ($row <= 4) {
-                            Log::warning("Skipping row {$row} - validation failed. Q: \"" . substr($questionText, 0, 50) . "...\", Answer: \"{$correctAnswer}\"");
-                        }
+                        $questionsSkipped++;
+                        $reason = [];
+                        if (empty($questionText)) $reason[] = 'empty question';
+                        if (empty($optionA)) $reason[] = 'empty option A';
+                        if (empty($optionB)) $reason[] = 'empty option B';
+                        if (empty($optionC)) $reason[] = 'empty option C';
+                        if (empty($optionD)) $reason[] = 'empty option D';
+                        if (!$hasValidAnswer) $reason[] = "invalid answer '{$correctAnswer}'";
+                        if ($correctAnswer === 'E' && empty($optionE)) $reason[] = 'answer is E but option E is empty';
+                        
+                        $reasonText = implode(', ', $reason);
+                        $skippedReasons[] = "Row {$row}: {$reasonText}";
+                        
+                        Log::warning("Skipping row {$row} - validation failed: {$reasonText}");
                     }
                 } else {
-                    if ($row <= 4) {
-                        Log::warning("Row {$row} has only " . count($rowData) . " columns, expected 7");
-                    }
+                    $questionsSkipped++;
+                    $skippedReasons[] = "Row {$row}: only " . count($rowData) . " columns (expected 7 or 8)";
+                    Log::warning("Row {$row} has only " . count($rowData) . " columns, expected 7 or 8");
                 }
             }
             
-            Log::info("Total questions created from Excel: {$questionsCreated}");
+            Log::info("=== UPLOAD SUMMARY ===");
+            Log::info("Total rows processed: " . ($highestRow - 1));
+            Log::info("Questions created: {$questionsCreated}");
+            Log::info("Questions skipped: {$questionsSkipped}");
+            if (!empty($skippedReasons)) {
+                Log::warning("Skipped questions details:");
+                foreach ($skippedReasons as $reason) {
+                    Log::warning("  - {$reason}");
+                }
+            }
+            Log::info("======================");
+            
             return $questionsCreated;
             
         } catch (\Exception $e) {
@@ -468,10 +560,11 @@ class AdminController extends Controller
     
     public function downloadTemplate()
     {
-        $csv = "Number,Question,Option A,Option B,Option C,Option D,Correct Answer\n";
-        $csv .= "1,What is the normal heart rate?,60-100 bpm,40-60 bpm,100-120 bpm,120-140 bpm,A\n";
-        $csv .= "2,Which organ produces insulin?,Liver,Pancreas,Kidney,Spleen,B\n";
-        $csv .= "3,What is the largest bone in the human body?,Femur,Tibia,Humerus,Radius,A\n";
+        $csv = "Number,Question,Option A,Option B,Option C,Option D,Option E,Correct Answer\n";
+        $csv .= "1,What is the normal heart rate?,60-100 bpm,40-60 bpm,100-120 bpm,120-140 bpm,,A\n";
+        $csv .= "2,Which organ produces insulin?,Liver,Pancreas,Kidney,Spleen,Heart,B\n";
+        $csv .= "3,What is the largest bone in the human body?,Femur,Tibia,Humerus,Radius,,A\n";
+        $csv .= "4,How many chambers does the human heart have?,2,3,4,5,6,C\n";
         
         return response($csv)
             ->header('Content-Type', 'text/csv')

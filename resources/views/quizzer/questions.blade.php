@@ -65,6 +65,14 @@
                                         <span>{{ $question->option_d }}</span>
                                     </div>
                                 </button>
+                                @if($question->option_e)
+                                <button class="option-btn" onclick="submitAnswer({{ $question->id }}, 'E')">
+                                    <div class="d-flex align-items-center">
+                                        <span class="option-letter me-3">E</span>
+                                        <span>{{ $question->option_e }}</span>
+                                    </div>
+                                </button>
+                                @endif
                             </div>
                             
                             <div class="feedback mt-4" id="feedback-{{ $question->id }}" style="display: none;"></div>

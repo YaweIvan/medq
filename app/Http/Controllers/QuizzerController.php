@@ -124,7 +124,7 @@ class QuizzerController extends Controller
     {
         $request->validate([
             'question_id' => 'required|exists:questions,id',
-            'selected_answer' => 'nullable|in:A,B,C,D',
+            'selected_answer' => 'nullable|in:A,B,C,D,E',
             'time_taken' => 'nullable|integer',
         ]);
 
@@ -140,7 +140,7 @@ class QuizzerController extends Controller
             'is_correct' => $isCorrect,
         ]);
 
-        // Mark question as used
+        // Mark question as used so no other student can access it
         $question->update(['is_used' => true]);
 
         return response()->json([

@@ -27,14 +27,7 @@ class AuthController extends Controller
             if ($user->isAdmin()) {
                 return redirect()->route('admin.dashboard');
             } elseif ($user->is_approved) {
-                // Check if quizzer is assigned to any active quiz
-                $hasActiveQuiz = $user->quizzes()->where('is_active', true)->exists();
-                if ($hasActiveQuiz) {
-                    return redirect()->route('quizzer.dashboard');
-                } else {
-                    Auth::logout();
-                    return back()->withErrors(['email' => 'No active quiz assigned to you.']);
-                }
+                return redirect()->route('quizzer.dashboard');
             } else {
                 Auth::logout();
                 return back()->withErrors(['email' => 'Account pending approval.']);
