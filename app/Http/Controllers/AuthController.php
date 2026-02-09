@@ -21,7 +21,7 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials)) {
+        if (Auth::attempt($credentials, false, false)) {
             $user = Auth::user();
             
             if ($user->isAdmin()) {

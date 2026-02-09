@@ -108,6 +108,9 @@ For question uploads, use this column structure:
 - ✅ Instant feedback system
 - ✅ Statistics tracking
 - ✅ Responsive design
+- ✅ **Concurrent session support (users stay logged in)**
+- ✅ **Real-time quiz updates (AJAX polling)**
+- ✅ **InfinityFree deployment ready**
 
 ## Technology Stack
 - **Backend**: Laravel 11
@@ -118,3 +121,16 @@ For question uploads, use this column structure:
 
 ## License
 MIT License
+
+## Concurrent Sessions & Deployment
+
+This application supports **full concurrent access**:
+- Students stay logged in while admins make changes
+- Real-time quiz updates (auto-refresh every 5 seconds)
+- No session conflicts between users
+- Works perfectly on InfinityFree shared hosting
+
+**See detailed guides:**
+- `CONCURRENT_SESSIONS_SUMMARY.md` - Implementation overview
+- `DEPLOYMENT_INFINITYFREE.md` - InfinityFree deployment guide
+- `TESTING_CONCURRENT_SESSIONS.md` - Testing instructions

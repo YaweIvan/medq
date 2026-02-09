@@ -601,14 +601,24 @@ class AdminController extends Controller
     public function updateQuizUsers(Request $request, $id)
     {
         $request->validate([
-            'user_ids' => 'required|array',
+            'user_ids' => 'sometimes|array', // Allow empty array to unassign all users
             'user_ids.*' => 'exists:users,id',
         ]);
         
         $quiz = Quiz::findOrFail($id);
-        $quiz->users()->sync($request->user_ids);
         
-        return response()->json(['success' => true, 'message' => 'User assignments updated successfully']);
+        // If user_ids is provided (even if empty), sync them
+        $userIds = $request->input('user_ids', []);
+        $quiz->users()->sync($userIds);
+        
+        // Clear any cached user data
+        \Cache::forget("quiz_{$id}_users");
+        
+        return response()->json([
+            'success' => true, 
+            'message' => 'User assignments updated successfully',
+            'assigned_count' => count($userIds)
+        ]);
     }
     
     public function resetQuiz($id)

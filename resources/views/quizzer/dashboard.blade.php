@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quizzer Dashboard - MedQ</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
@@ -53,5 +56,21 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentQuizCount = {{ $activeQuizzes->count() }};
+        
+        function checkForUpdates() {
+            fetch('{{ route('quizzer.api.check-updates') }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.count !== currentQuizCount) {
+                        location.reload();
+                    }
+                })
+                .catch(error => console.log('Update check failed'));
+        }
+        
+        setInterval(checkForUpdates, 5000);
+    </script>
 </body>
 </html>

@@ -86,6 +86,9 @@
                     <button type="button" class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#manageUsersModal">
                         <i class="fas fa-users me-2"></i>Manage Users
                     </button>
+                    <button type="button" class="btn btn-success btn-sm mb-3 ms-2" onclick="saveUserAssignments()" id="saveAssignmentsBtn" style="display: none;">
+                        <i class="fas fa-save me-2"></i>Save Changes
+                    </button>
                     
                     <div class="row" id="assignedUsersList">
                         @foreach($quiz->users as $user)
@@ -173,7 +176,12 @@
     let assignedUsers = @json($quiz->users->pluck('id')->toArray());
     let allUsers = [];
 
-    // Load all users when modal opens
+    // Load all users on page load so X button works immediately
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadUsers();
+    });
+
+    // Reload users when modal opens (in case users were added/removed)
     document.getElementById('manageUsersModal').addEventListener('show.bs.modal', async function() {
         await loadUsers();
     });
@@ -186,14 +194,16 @@
             
             console.log('Loaded users:', allUsers); // Debug
             
-            if (allUsers.length === 0) {
+            if (allUsers.length === 0 && document.getElementById('manageUsersModal').classList.contains('show')) {
                 document.getElementById('userList').innerHTML = '<p class="text-muted text-center">No approved quizzer users found in the system</p>';
-            } else {
+            } else if (document.getElementById('manageUsersModal').classList.contains('show')) {
                 renderUserList();
             }
         } catch (error) {
             console.error('Error loading users:', error);
-            document.getElementById('userList').innerHTML = '<p class="text-danger">Error loading users. Please try again.</p>';
+            if (document.getElementById('manageUsersModal').classList.contains('show')) {
+                document.getElementById('userList').innerHTML = '<p class="text-danger">Error loading users. Please try again.</p>';
+            }
         }
     }
 
@@ -236,11 +246,19 @@
     function toggleUser(userId, userName) {
         const index = assignedUsers.indexOf(userId);
         if (index > -1) {
+            // User is assigned - remove them
             assignedUsers.splice(index, 1);
+            console.log('Unassigned user:', userId, userName); // Debug
         } else {
+            // User is not assigned - add them
             assignedUsers.push(userId);
+            console.log('Assigned user:', userId, userName); // Debug
         }
+        console.log('Current assigned users:', assignedUsers); // Debug
         updateAssignedUsersList();
+        
+        // Show save button when changes are made
+        document.getElementById('saveAssignmentsBtn').style.display = 'inline-block';
         
         // Update the card styling
         const card = document.querySelector(`.user-card[data-user-id="${userId}"]`);
@@ -280,10 +298,21 @@
     }
 
     function removeUserFromList(userId) {
+        console.log('Removing user:', userId); // Debug
+        
+        // Remove from array
         const index = assignedUsers.indexOf(userId);
         if (index > -1) {
             assignedUsers.splice(index, 1);
+            console.log('Updated assignedUsers:', assignedUsers); // Debug
+            
+            // Update the UI immediately
             updateAssignedUsersList();
+            
+            // Show save button
+            document.getElementById('saveAssignmentsBtn').style.display = 'inline-block';
+            
+            // If modal is open, update the checkboxes there too
             if (document.getElementById('manageUsersModal').classList.contains('show')) {
                 renderUserList(document.getElementById('userSearch').value);
             }
@@ -292,6 +321,8 @@
 
     async function saveUserAssignments() {
         try {
+            console.log('Saving user assignments:', assignedUsers); // Debug
+            
             const response = await fetch('{{ route("admin.quizzes.update-users", $quiz->id) }}', {
                 method: 'POST',
                 headers: {
@@ -299,13 +330,23 @@
                     'X-CSRF-TOKEN': document.querySelector('[name="_token"]').value
                 },
                 body: JSON.stringify({
-                    user_ids: assignedUsers
+                    user_ids: assignedUsers // Send empty array if no users assigned
                 })
             });
             
+            const data = await response.json();
+            
             if (response.ok) {
-                alert('User assignments updated successfully!');
-                bootstrap.Modal.getInstance(document.getElementById('manageUsersModal')).hide();
+                // Hide save button
+                document.getElementById('saveAssignmentsBtn').style.display = 'none';
+                
+                alert(`User assignments updated! ${data.assigned_count} user(s) assigned.`);
+                bootstrap.Modal.getInstance(document.getElementById('manageUsersModal'))?.hide();
+                
+                // Redirect to quizzes index
+                setTimeout(() => {
+                    window.location.href = '{{ route("admin.quizzes.index") }}';
+                }, 500);
             } else {
                 alert('Error updating user assignments. Please try again.');
             }

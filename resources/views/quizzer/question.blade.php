@@ -100,7 +100,7 @@
         <div class="timer-warning-card">
             <h3><i class="fas fa-stopwatch text-primary me-2"></i>Timer Starting!</h3>
             <p>Once you click "Start", the timer will begin counting down.<br>
-            <strong>You will have 30 seconds</strong> to answer this question.</p>
+            <strong>You will have 1 minute</strong> to answer this question.</p>
             <button class="btn btn-primary" onclick="startTimer()">
                 <i class="fas fa-play me-2"></i>Start Timer
             </button>
@@ -110,7 +110,7 @@
     <!-- Question Timer -->
     <div class="question-timer" id="timerContainer" style="display: none;">
         <div class="question-timer-label">Time Left</div>
-        <div class="question-timer-display" id="questionTimer">30</div>
+        <div class="question-timer-display" id="questionTimer">60</div>
     </div>
 
     <div class="main-content">
@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submitAnswer');
     const questionId = {{ $question->id }};
     const timerStartKey = `quiz_timer_start_${questionId}`;
-    const TOTAL_TIME = 30; // 30 seconds per question
+    const TOTAL_TIME = 60; // 60 seconds per question (1 minute)
     
     let selectedAnswer = null;
     let questionTimerInterval;

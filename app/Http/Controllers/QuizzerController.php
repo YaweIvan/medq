@@ -13,10 +13,14 @@ class QuizzerController extends Controller
 {
     public function dashboard()
     {
-        $user = Auth::user();
+        $user = Auth::user()->fresh(['quizzes']); // Fresh data from database with relationships
         $activeQuizzes = $user->quizzes()->where('is_active', true)->get();
         
-        return view('quizzer.dashboard', compact('activeQuizzes'));
+        return response()
+            ->view('quizzer.dashboard', compact('activeQuizzes'))
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     public function quizSubjects($quizId)

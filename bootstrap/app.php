@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'quizzer' => \App\Http\Middleware\QuizzerMiddleware::class,
         ]);
+        $middleware->web(append: [
+            \App\Http\Middleware\PreventSessionRegeneration::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

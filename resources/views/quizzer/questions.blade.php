@@ -125,6 +125,11 @@
     </style>
 
     <script>
+        // Keep session alive during quiz
+        setInterval(() => {
+            fetch('{{ route("quizzer.api.check-updates") }}').catch(() => {});
+        }, 60000); // Every 60 seconds
+        
         function submitAnswer(questionId, selectedAnswer) {
             const questionCard = document.getElementById('question-' + questionId);
             const options = questionCard.querySelectorAll('.option-btn');

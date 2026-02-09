@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\QuizzerController;
 use App\Http\Controllers\StatisticsApiController;
+use App\Http\Controllers\QuizzerApiController;
 
 Route::get('/quizzer/stats', [StatisticsApiController::class, 'index']);
 
@@ -77,6 +78,7 @@ Route::prefix('quizzer')->middleware(['auth', 'quizzer'])->name('quizzer.')->gro
     Route::get('/tutorial', function() { return view('quizzer.tutorial'); })->name('tutorial');
     
     Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/check-updates', [QuizzerApiController::class, 'checkQuizUpdates'])->name('check-updates');
         Route::get('/my-stats', function() {
             return app(\App\Http\Controllers\StatisticsApiController::class)->userStats(auth()->id());
         });
