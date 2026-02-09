@@ -232,15 +232,47 @@
 document.addEventListener('DOMContentLoaded', function() {
     const options = document.querySelectorAll('.option');
     const submitBtn = document.getElementById('submitAnswer');
+    const questionId = {{ $question->id }};
+    const timerStartKey = `quiz_timer_start_${questionId}`;
+    const TOTAL_TIME = 30; // 30 seconds per question
+    
     let selectedAnswer = null;
     let questionTimerInterval;
     let hasSubmitted = false;
-    let timeRemaining = 30; // 30 seconds per question
+    let timeRemaining = TOTAL_TIME;
     let timerStarted = false;
+    let startTimestamp = null;
 
-    // Disable options until timer starts
-    options.forEach(opt => opt.style.pointerEvents = 'none');
-    submitBtn.style.pointerEvents = 'none';
+    // Check if timer was already started for this question
+    const savedTimerStart = localStorage.getItem(timerStartKey);
+    
+    if (savedTimerStart) {
+        // Timer was started before - calculate exact remaining time
+        startTimestamp = parseInt(savedTimerStart);
+        const currentTime = Date.now();
+        const elapsedMilliseconds = currentTime - startTimestamp;
+        const elapsedSeconds = elapsedMilliseconds / 1000;
+        
+        // Calculate remaining time and ensure it never goes negative
+        timeRemaining = Math.max(0, TOTAL_TIME - elapsedSeconds);
+        
+        if (timeRemaining > 0.5) { // Allow half-second buffer to prevent premature expiry
+            // Resume timer automatically
+            timerStarted = true;
+            document.getElementById('timerWarning').style.display = 'none';
+            document.getElementById('timerContainer').style.display = 'block';
+            options.forEach(opt => opt.style.pointerEvents = 'auto');
+            submitBtn.style.pointerEvents = 'auto';
+            startCountdown();
+        } else {
+            // Time expired, auto submit immediately with empty answer
+            autoSubmit();
+        }
+    } else {
+        // First time on this question - disable options until timer starts
+        options.forEach(opt => opt.style.pointerEvents = 'none');
+        submitBtn.style.pointerEvents = 'none';
+    }
 
     // Function to start the timer
     window.startTimer = function() {
@@ -255,32 +287,53 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.style.pointerEvents = 'auto';
         
         timerStarted = true;
+        
+        // Save absolute start timestamp (milliseconds)
+        startTimestamp = Date.now();
+        localStorage.setItem(timerStartKey, startTimestamp.toString());
+        
         startCountdown();
     };
 
     function startCountdown() {
         updateTimerDisplay();
+        
         questionTimerInterval = setInterval(() => {
-            timeRemaining--;
+            // Calculate precise remaining time from absolute start timestamp
+            const currentTime = Date.now();
+            const elapsedMilliseconds = currentTime - startTimestamp;
+            const elapsedSeconds = elapsedMilliseconds / 1000;
+            
+            // Calculate remaining time, ensuring it never goes negative
+            timeRemaining = Math.max(0, TOTAL_TIME - elapsedSeconds);
+            
             updateTimerDisplay();
             
+            // Auto submit when time reaches 0
             if (timeRemaining <= 0) {
+                clearInterval(questionTimerInterval);
                 autoSubmit();
             }
-        }, 1000);
+        }, 100); // Update every 100ms for smooth display
     }
 
     function updateTimerDisplay() {
         const timerElement = document.getElementById('questionTimer');
         const timerContainer = document.getElementById('timerContainer');
         
-        timerElement.textContent = timeRemaining;
+        // Display as integer, never negative
+        const displayTime = Math.max(0, Math.ceil(timeRemaining));
+        timerElement.textContent = displayTime;
         
         // Turn red when 10 seconds or below
-        if (timeRemaining <= 10) {
+        if (displayTime <= 10) {
             timerElement.classList.add('danger');
             timerContainer.classList.add('danger');
         }
+    }
+
+    function clearTimerStorage() {
+        localStorage.removeItem(timerStartKey);
     }
 
     function autoSubmit() {
@@ -289,8 +342,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (hasSubmitted) return;
         
         hasSubmitted = true;
+        clearTimerStorage();
         
-        // Submit empty answer on timeout - no alert, immediate redirect
+        // Disable all options
+        options.forEach(opt => opt.style.pointerEvents = 'none');
+        submitBtn.style.pointerEvents = 'none';
+        
+        // Submit with empty answer - marks question as FAILED and LOCKED
         fetch('{{ route("quizzer.submit.answer") }}', {
             method: 'POST',
             headers: {
@@ -298,17 +356,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             body: JSON.stringify({
-                question_id: {{ $question->id }},
-                selected_answer: '',
-                time_taken: 30
+                question_id: questionId,
+                selected_answer: '', // Empty = time expired, marked as FAILED (is_correct = false)
+                time_taken: TOTAL_TIME
             })
         })
+        .then(response => response.json())
         .then(() => {
-            window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
+            // Wait 1 second before redirecting to grid
+            setTimeout(() => {
+                window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
+            }, 1000);
         })
         .catch(() => {
-            // Even on error, redirect back to grid
-            window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
+            // Even on error, redirect to grid after 1 second
+            setTimeout(() => {
+                window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
+            }, 1000);
         });
     }
 
@@ -334,9 +398,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Stop timer immediately
         clearInterval(questionTimerInterval);
+        clearTimerStorage();
         
         submitBtn.disabled = true;
         options.forEach(opt => opt.style.pointerEvents = 'none');
+
+        // Calculate actual time taken
+        const currentTime = Date.now();
+        const elapsedMilliseconds = currentTime - startTimestamp;
+        const timeTaken = Math.min(TOTAL_TIME, Math.ceil(elapsedMilliseconds / 1000));
 
         fetch('{{ route("quizzer.submit.answer") }}', {
             method: 'POST',
@@ -345,9 +415,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             body: JSON.stringify({
-                question_id: {{ $question->id }},
+                question_id: questionId,
                 selected_answer: selectedAnswer || '',
-                time_taken: 30 - timeRemaining
+                time_taken: timeTaken
             })
         })
         .then(response => response.json())
@@ -363,12 +433,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     selectedOption.style.backgroundColor = '#fee2e2';
                     
                     const correctOption = document.querySelector(`[data-answer="${data.correct_answer}"]`);
-                    correctOption.style.borderColor = '#10b981';
-                    correctOption.style.backgroundColor = '#dcfce7';
+                    if (correctOption) {
+                        correctOption.style.borderColor = '#10b981';
+                        correctOption.style.backgroundColor = '#dcfce7';
+                    }
                 }
             }
             
-            // Redirect back to grid
+            // Redirect back to grid after showing feedback
             setTimeout(() => {
                 window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
             }, 1500);

@@ -130,22 +130,25 @@ class QuizzerController extends Controller
 
         $question = Question::findOrFail($request->question_id);
         $selectedAnswer = $request->selected_answer ?? '';
-        $isCorrect = $question->correct_answer === $selectedAnswer;
+        
+        // If no answer provided (empty/time expired), mark as incorrect (failed)
+        $isCorrect = !empty($selectedAnswer) && ($question->correct_answer === $selectedAnswer);
 
         QuizAttempt::create([
             'user_id' => Auth::id(),
             'quiz_id' => $question->quiz_id,
             'question_id' => $question->id,
-            'selected_answer' => $selectedAnswer,
-            'is_correct' => $isCorrect,
+            'selected_answer' => $selectedAnswer, // Empty string for time-expired attempts
+            'is_correct' => $isCorrect, // False when empty or wrong, true when correct
         ]);
 
-        // Mark question as used so no other student can access it
+        // Mark question as used/locked so no other student can access it
         $question->update(['is_used' => true]);
 
         return response()->json([
             'correct' => $isCorrect,
             'correct_answer' => $question->correct_answer,
+            'time_expired' => empty($selectedAnswer), // Flag to indicate time expiry
         ]);
     }
 
