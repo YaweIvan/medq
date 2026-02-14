@@ -450,6 +450,67 @@ class AdminController extends Controller
         return view('admin.statistics', compact('stats'));
     }
 
+    public function quizAnalysis($quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $subjects = Subject::whereHas('questions', function($query) use ($quizId) {
+            $query->where('quiz_id', $quizId);
+        })->get();
+        
+        return view('admin.quiz_analysis', compact('quiz', 'subjects'));
+    }
+
+    public function subjectAnalysis($quizId, $subjectId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $subject = Subject::findOrFail($subjectId);
+        
+        $rankings = QuizAttempt::where('quiz_id', $quizId)
+            ->whereHas('question', function($query) use ($subjectId) {
+                $query->where('subject_id', $subjectId);
+            })
+            ->selectRaw('user_id, COUNT(*) as total, SUM(is_correct) as correct')
+            ->groupBy('user_id')
+            ->with('user')
+            ->get()
+            ->map(function($item) {
+                $item->percentage = $item->total > 0 ? round(($item->correct / $item->total) * 100, 2) : 0;
+                return $item;
+            })
+            ->sortByDesc('percentage')
+            ->values();
+        
+        return view('admin.subject_analysis', compact('quiz', 'subject', 'rankings'));
+    }
+
+    public function studentSubjectReview($quizId, $subjectId, $userId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $subject = Subject::findOrFail($subjectId);
+        $user = User::findOrFail($userId);
+        
+        $attempts = QuizAttempt::where('user_id', $userId)
+            ->where('quiz_id', $quizId)
+            ->whereHas('question', function($query) use ($subjectId) {
+                $query->where('subject_id', $subjectId);
+            })
+            ->with('question')
+            ->get();
+        
+        // Add question numbers
+        $allQuestions = Question::where('quiz_id', $quizId)
+            ->where('subject_id', $subjectId)
+            ->orderBy('id')
+            ->pluck('id')
+            ->toArray();
+        
+        foreach ($attempts as $attempt) {
+            $attempt->question_number = array_search($attempt->question_id, $allQuestions) + 1;
+        }
+        
+        return view('admin.student_subject_review', compact('quiz', 'subject', 'user', 'attempts'));
+    }
+
     public function leaderboard()
     {
         $quizzes = Quiz::withCount('questions')
@@ -641,5 +702,33 @@ class AdminController extends Controller
             'questions_reset' => $questionsCount,
             'attempts_deleted' => $attemptsCount
         ]);
+    }
+
+    public function addSubjects(Request $request, $id)
+    {
+        $quiz = Quiz::findOrFail($id);
+        
+        \DB::beginTransaction();
+        
+        try {
+            $totalQuestions = 0;
+            
+            foreach ($request->subjects as $index => $subjectData) {
+                $subjectName = trim($subjectData['name']);
+                $subject = Subject::firstOrCreate(['name' => $subjectName]);
+                
+                if (isset($subjectData['file'])) {
+                    $questionsCreated = $this->processExcelFile($subjectData['file'], $quiz->id, $subject->id);
+                    $totalQuestions += $questionsCreated;
+                }
+            }
+            
+            \DB::commit();
+            return response()->json(['success' => true, 'message' => "Added {$totalQuestions} questions successfully"]);
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }

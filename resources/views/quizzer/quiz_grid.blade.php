@@ -68,6 +68,7 @@
             text-align: center;
             max-width: 400px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            position: relative;
         }
         
         .start-quiz-card h3 {
@@ -154,6 +155,16 @@
                 </a>
             </div>
 
+            @if($attemptedCount == 0)
+            <div class="start-quiz-overlay" id="startOverlay">
+                <div class="start-quiz-card">
+                    <button class="btn btn-sm btn-close position-absolute top-0 end-0 m-3" onclick="closeTimerMessage()"></button>
+                    <h3><i class="fas fa-clock text-primary me-2"></i>Timer Starting!</h3>
+                    <p>The timer will begin counting down automatically.<br>You will have 1 minute to answer each question.</p>
+                </div>
+            </div>
+            @endif
+
             <div class="card">
                 <div class="card-body">
                     <div class="question-grid">
@@ -202,8 +213,27 @@
 
     <script>
         const MAX_QUESTIONS = 5;
+        const hasActiveTimer = {{ $hasActiveTimer ? 'true' : 'false' }};
+
+        function closeTimerMessage() {
+            document.getElementById('startOverlay').style.display = 'none';
+        }
 
         function attemptQuestion(questionId) {
+            // Check if timer is running for a DIFFERENT question
+            const timerKeys = Object.keys(localStorage).filter(key => key.startsWith('quiz_timer_start_'));
+            for (let key of timerKeys) {
+                const currentQuestionId = key.replace('quiz_timer_start_', '');
+                if (currentQuestionId != questionId) {
+                    const startTime = parseInt(localStorage.getItem(key));
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    if (elapsed < 60) {
+                        alert('Please complete or wait for the current question timer to finish before attempting another question.');
+                        return;
+                    }
+                }
+            }
+            
             // Check if 5 questions already completed
             if ({{ $attemptedCount }} >= MAX_QUESTIONS) {
                 alert('You have completed all 5 questions for this subject!');

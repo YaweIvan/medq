@@ -52,60 +52,11 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
-        .timer-warning-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-        }
-        
-        .timer-warning-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            text-align: center;
-            max-width: 400px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-        }
-        
-        .timer-warning-card h3 {
-            color: #1f2937;
-            margin-bottom: 1rem;
-        }
-        
-        .timer-warning-card p {
-            color: #6b7280;
-            margin-bottom: 1.5rem;
-        }
-        
-        .timer-warning-card .btn {
-            padding: 0.75rem 2rem;
-            font-size: 1.1rem;
-        }
     </style>
 </head>
 <body>
     @include('components.topnav')
     @include('components.quizzer_sidebar')
-
-    <!-- Timer Warning Overlay -->
-    <div class="timer-warning-overlay" id="timerWarning">
-        <div class="timer-warning-card">
-            <h3><i class="fas fa-stopwatch text-primary me-2"></i>Timer Starting!</h3>
-            <p>Once you click "Start", the timer will begin counting down.<br>
-            <strong>You will have 1 minute</strong> to answer this question.</p>
-            <button class="btn btn-primary" onclick="startTimer()">
-                <i class="fas fa-play me-2"></i>Start Timer
-            </button>
-        </div>
-    </div>
 
     <!-- Question Timer -->
     <div class="question-timer" id="timerContainer" style="display: none;">
@@ -116,17 +67,13 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="fw-bold text-dark">Question</h2>
+                <h2 class="fw-bold text-dark">Question #{{ $questionNumber }}</h2>
                 <a href="{{ route('quizzer.question.grid', [$question->quiz_id, $question->subject_id]) }}" class="btn btn-outline-primary">
                     <i class="fas fa-arrow-left me-2"></i>Back to Grid
                 </a>
             </div>
 
             <div class="question-card">
-                    <div class="question-header">
-                        <h4>{{ $question->quiz->title }} - {{ $question->subject->name }}</h4>
-                    </div>
-                    
                     <div class="question-content">
                         <h5 class="question-text">{{ $question->question }}</h5>
                         
@@ -171,16 +118,13 @@
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-.question-header {
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 1rem;
-    margin-bottom: 2rem;
-}
-
 .question-text {
     color: #1f2937;
-    line-height: 1.6;
+    line-height: 1.8;
     margin-bottom: 2rem;
+    font-size: 1.1rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .option {
@@ -225,6 +169,8 @@
 .option-text {
     flex: 1;
     color: #374151;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 </style>
 
@@ -259,7 +205,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (timeRemaining > 0.5) { // Allow half-second buffer to prevent premature expiry
             // Resume timer automatically
             timerStarted = true;
-            document.getElementById('timerWarning').style.display = 'none';
             document.getElementById('timerContainer').style.display = 'block';
             options.forEach(opt => opt.style.pointerEvents = 'auto');
             submitBtn.style.pointerEvents = 'auto';
@@ -269,31 +214,17 @@ document.addEventListener('DOMContentLoaded', function() {
             autoSubmit();
         }
     } else {
-        // First time on this question - disable options until timer starts
-        options.forEach(opt => opt.style.pointerEvents = 'none');
-        submitBtn.style.pointerEvents = 'none';
-    }
-
-    // Function to start the timer
-    window.startTimer = function() {
-        // Hide warning overlay
-        document.getElementById('timerWarning').style.display = 'none';
-        
-        // Show timer
-        document.getElementById('timerContainer').style.display = 'block';
-        
-        // Enable options
-        options.forEach(opt => opt.style.pointerEvents = 'auto');
-        submitBtn.style.pointerEvents = 'auto';
-        
+        // First time on this question - start timer automatically
         timerStarted = true;
-        
-        // Save absolute start timestamp (milliseconds)
         startTimestamp = Date.now();
         localStorage.setItem(timerStartKey, startTimestamp.toString());
-        
+        document.getElementById('timerContainer').style.display = 'block';
+        options.forEach(opt => opt.style.pointerEvents = 'auto');
+        submitBtn.style.pointerEvents = 'auto';
         startCountdown();
-    };
+    }
+
+    // Function removed - no longer needed
 
     function startCountdown() {
         updateTimerDisplay();

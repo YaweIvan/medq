@@ -22,6 +22,20 @@
                 </div>
             </div>
 
+            <div class="row g-3 mb-4">
+                @foreach(\App\Models\Quiz::all() as $quiz)
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm" style="cursor: pointer;" onclick="window.location.href='{{ route('admin.quiz.analysis', $quiz->id) }}'">
+                            <div class="card-body text-center p-3">
+                                <i class="fas fa-clipboard-list text-primary mb-2" style="font-size: 2rem;"></i>
+                                <h6 class="card-title mb-1">{{ $quiz->title }}</h6>
+                                <span class="badge {{ $quiz->is_active ? 'bg-success' : 'bg-secondary' }}">{{ $quiz->is_active ? 'Active' : 'Completed' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
             <div class="row g-4 mb-4">
                 <div class="col-lg-6">
                     <div class="card">
@@ -40,19 +54,6 @@
                         </div>
                         <div class="card-body">
                             <canvas id="participationChart" height="300"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header bg-white">
-                            <h5 class="mb-0"><i class="fas fa-book me-2"></i>Subject Performance</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="subjectChart" height="80"></canvas>
                         </div>
                     </div>
                 </div>
@@ -107,36 +108,6 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'bottom' }
-                    }
-                }
-            });
-        });
-
-    // Subject Performance Chart
-    fetch('/admin/api/subject-performance')
-        .then(res => res.json())
-        .then(data => {
-            new Chart(document.getElementById('subjectChart'), {
-                type: 'line',
-                data: {
-                    labels: data.map(d => d.subject),
-                    datasets: [{
-                        label: 'Accuracy %',
-                        data: data.map(d => d.accuracy),
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { 
-                            beginAtZero: true,
-                            max: 100
-                        }
                     }
                 }
             });

@@ -90,7 +90,7 @@
                             </thead>
                             <tbody>
                                 ${data.map(quiz => `
-                                    <tr>
+                                    <tr style="cursor: pointer;" onclick="window.location.href='/quizzer/quiz/${quiz.quiz_id}/review'">
                                         <td><strong>${quiz.quiz}</strong></td>
                                         <td class="text-center"><span class="badge bg-primary">${quiz.rank}</span></td>
                                         <td class="text-center text-success">${quiz.correct}</td>

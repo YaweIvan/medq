@@ -53,6 +53,23 @@ class QuizzerController extends Controller
         $subject = Subject::findOrFail($subjectId);
         $user = Auth::user();
         
+        // Check if user has an active timer running
+        $activeTimerKey = "quiz_timer_start_";
+        $hasActiveTimer = false;
+        foreach (array_keys($_COOKIE) as $key) {
+            if (strpos($key, $activeTimerKey) === 0) {
+                $questionId = str_replace($activeTimerKey, '', $key);
+                $timerStart = $_COOKIE[$key] ?? null;
+                if ($timerStart) {
+                    $elapsed = time() - ($timerStart / 1000);
+                    if ($elapsed < 60) {
+                        $hasActiveTimer = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
         $questions = Question::where('quiz_id', $quizId)
             ->where('subject_id', $subjectId)
             ->get();
@@ -66,7 +83,7 @@ class QuizzerController extends Controller
             
         $attemptedCount = $attemptedQuestions->count();
         
-        return view('quizzer.quiz_grid', compact('quiz', 'subject', 'questions', 'attemptedQuestions', 'attemptedCount'));
+        return view('quizzer.quiz_grid', compact('quiz', 'subject', 'questions', 'attemptedQuestions', 'attemptedCount', 'hasActiveTimer'));
     }
 
     public function questions($quizId, $subjectId)
@@ -121,7 +138,32 @@ class QuizzerController extends Controller
             return redirect()->back()->with('error', 'Question already attempted.');
         }
         
-        return view('quizzer.question', compact('question'));
+        // Check if user has another active timer running for a DIFFERENT question
+        $timerStartKey = "quiz_timer_start_";
+        if (isset($_COOKIE)) {
+            foreach (array_keys($_COOKIE) as $key) {
+                if (strpos($key, $timerStartKey) === 0) {
+                    $otherQuestionId = str_replace($timerStartKey, '', $key);
+                    if ($otherQuestionId != $questionId) {
+                        $timerStart = $_COOKIE[$key] ?? null;
+                        if ($timerStart) {
+                            $elapsed = time() - ($timerStart / 1000);
+                            if ($elapsed < 60) {
+                                return redirect()->back()->with('error', 'Please complete the current question first.');
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Get question number within subject
+        $questionNumber = Question::where('quiz_id', $question->quiz_id)
+            ->where('subject_id', $question->subject_id)
+            ->where('id', '<=', $questionId)
+            ->count();
+        
+        return view('quizzer.question', compact('question', 'questionNumber'));
     }
 
     public function submitAnswer(Request $request)
@@ -171,5 +213,50 @@ class QuizzerController extends Controller
             ->get();
 
         return view('quizzer.statistics', compact('stats'));
+    }
+
+    public function quizReview($quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $user = Auth::user();
+        
+        $subjects = Subject::whereHas('questions', function($query) use ($quizId, $user) {
+            $query->where('quiz_id', $quizId)
+                  ->whereIn('id', function($subQuery) use ($user) {
+                      $subQuery->select('question_id')
+                               ->from('quiz_attempts')
+                               ->where('user_id', $user->id);
+                  });
+        })->get();
+        
+        return view('quizzer.quiz_review', compact('quiz', 'subjects'));
+    }
+
+    public function subjectReview($quizId, $subjectId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $subject = Subject::findOrFail($subjectId);
+        $user = Auth::user();
+        
+        $attempts = QuizAttempt::where('user_id', $user->id)
+            ->where('quiz_id', $quizId)
+            ->whereHas('question', function($query) use ($subjectId) {
+                $query->where('subject_id', $subjectId);
+            })
+            ->with('question')
+            ->get();
+        
+        // Add question numbers
+        $allQuestions = Question::where('quiz_id', $quizId)
+            ->where('subject_id', $subjectId)
+            ->orderBy('id')
+            ->pluck('id')
+            ->toArray();
+        
+        foreach ($attempts as $attempt) {
+            $attempt->question_number = array_search($attempt->question_id, $allQuestions) + 1;
+        }
+        
+        return view('quizzer.subject_review', compact('quiz', 'subject', 'attempts'));
     }
 }

@@ -120,6 +120,34 @@
                 </div>
 
                 <div class="mb-4">
+                    <h5 class="mb-3">Add New Subject</h5>
+                    <div id="subjectsContainer">
+                        <div class="subject-item mb-3 p-3 border rounded">
+                            <div class="mb-3">
+                                <label class="form-label">Subject Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Questions File <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control subject-file" accept=".xlsx,.xls,.csv">
+                                <small class="text-muted">Drag & drop .xlsx or .csv file or click to browse</small>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSubject()">
+                        <i class="fas fa-plus me-2"></i>Add Another Subject
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success ms-2" onclick="uploadNewSubjects()">
+                        <i class="fas fa-upload me-2"></i>Upload Subjects
+                    </button>
+                    
+                    <div class="alert alert-info mt-3">
+                        <strong><i class="fas fa-info-circle me-2"></i>Excel/CSV File Format Requirements</strong>
+                        <p class="mb-0 mt-2">Columns: Number, Question, Option A, Option B, Option C, Option D, Option E (optional), Correct Answer</p>
+                    </div>
+                </div>
+
+                <div class="mb-4">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="isActive" {{ $quiz->is_active ? 'checked' : '' }}>
                         <label class="form-check-label" for="isActive">
@@ -415,6 +443,76 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error resetting quiz. Please try again.');
+        }
+    }
+
+    function addSubject() {
+        const container = document.getElementById('subjectsContainer');
+        const newSubject = document.createElement('div');
+        newSubject.className = 'subject-item mb-3 p-3 border rounded';
+        newSubject.innerHTML = `
+            <div class="mb-3">
+                <label class="form-label">Subject Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Questions File <span class="text-danger">*</span></label>
+                <input type="file" class="form-control subject-file" accept=".xlsx,.xls,.csv">
+                <small class="text-muted">Drag & drop .xlsx or .csv file or click to browse</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">
+                <i class="fas fa-trash"></i> Remove
+            </button>
+        `;
+        container.appendChild(newSubject);
+    }
+
+    async function uploadNewSubjects() {
+        const subjects = [];
+        const subjectItems = document.querySelectorAll('.subject-item');
+        
+        for (let item of subjectItems) {
+            const name = item.querySelector('.subject-name').value.trim();
+            const file = item.querySelector('.subject-file').files[0];
+            
+            if (name && file) {
+                subjects.push({ name, file });
+            }
+        }
+        
+        if (subjects.length === 0) {
+            alert('Please add at least one subject with a file');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('quiz_id', '{{ $quiz->id }}');
+        
+        subjects.forEach((subject, index) => {
+            formData.append(`subjects[${index}][name]`, subject.name);
+            formData.append(`subjects[${index}][file]`, subject.file);
+        });
+        
+        try {
+            const response = await fetch('{{ route("admin.quizzes.add-subjects", $quiz->id) }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('[name="_token"]').value
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error uploading subjects. Please try again.');
         }
     }
     </script>

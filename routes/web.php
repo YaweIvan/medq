@@ -35,6 +35,9 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::post('/cancel-approval/{id}', [AdminController::class, 'cancelApproval'])->name('cancel-approval');
     Route::delete('/delete-user/{id}', [AdminController::class, 'deleteUser'])->name('delete-user');
     Route::get('/statistics', [AdminController::class, 'statistics'])->name('statistics');
+    Route::get('/quiz/{quiz}/analysis', [AdminController::class, 'quizAnalysis'])->name('quiz.analysis');
+    Route::get('/quiz/{quiz}/subject/{subject}/analysis', [AdminController::class, 'subjectAnalysis'])->name('subject.analysis');
+    Route::get('/quiz/{quiz}/subject/{subject}/student/{user}/review', [AdminController::class, 'studentSubjectReview'])->name('student.subject.review');
     Route::get('/leaderboard', [AdminController::class, 'leaderboard'])->name('leaderboard');
     Route::get('/leaderboard/{quiz}', [AdminController::class, 'quizLeaderboard'])->name('quiz.leaderboard');
     Route::get('/leaderboard/{quiz}/student/{user}', [AdminController::class, 'studentQuizDetails'])->name('student.quiz.details');
@@ -59,6 +62,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         Route::put('/{id}', [AdminController::class, 'updateQuiz'])->name('update');
         Route::post('/{id}/update-users', [AdminController::class, 'updateQuizUsers'])->name('update-users');
         Route::post('/{id}/reset', [AdminController::class, 'resetQuiz'])->name('reset');
+        Route::post('/{id}/add-subjects', [AdminController::class, 'addSubjects'])->name('add-subjects');
         Route::get('/randomizer', [AdminController::class, 'randomizer'])->name('randomizer');
         Route::post('/randomize', [AdminController::class, 'randomizeQuiz'])->name('randomize');
         Route::delete('/{id}', [AdminController::class, 'deleteQuiz'])->name('delete');
@@ -75,6 +79,8 @@ Route::prefix('quizzer')->middleware(['auth', 'quizzer'])->name('quizzer.')->gro
     Route::get('/question/{question}', [QuizzerController::class, 'showQuestion'])->name('question.show');
     Route::post('/submit-answer', [QuizzerController::class, 'submitAnswer'])->name('submit.answer');
     Route::get('/statistics', [QuizzerController::class, 'statistics'])->name('statistics');
+    Route::get('/quiz/{quiz}/review', [QuizzerController::class, 'quizReview'])->name('quiz.review');
+    Route::get('/quiz/{quiz}/subject/{subject}/review', [QuizzerController::class, 'subjectReview'])->name('subject.review');
     Route::get('/tutorial', function() { return view('quizzer.tutorial'); })->name('tutorial');
     
     Route::prefix('api')->name('api.')->group(function () {
