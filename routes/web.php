@@ -36,6 +36,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::delete('/delete-user/{id}', [AdminController::class, 'deleteUser'])->name('delete-user');
     Route::get('/statistics', [AdminController::class, 'statistics'])->name('statistics');
     Route::get('/quiz/{quiz}/analysis', [AdminController::class, 'quizAnalysis'])->name('quiz.analysis');
+    Route::get('/quiz/{quiz}/rankings/export', [AdminController::class, 'exportQuizRankings'])->name('quiz.rankings.export');
     Route::get('/quiz/{quiz}/subject/{subject}/analysis', [AdminController::class, 'subjectAnalysis'])->name('subject.analysis');
     Route::get('/quiz/{quiz}/subject/{subject}/student/{user}/review', [AdminController::class, 'studentSubjectReview'])->name('student.subject.review');
     Route::get('/leaderboard', [AdminController::class, 'leaderboard'])->name('leaderboard');
@@ -95,4 +96,19 @@ Route::prefix('quizzer')->middleware(['auth', 'quizzer'])->name('quizzer.')->gro
             return app(\App\Http\Controllers\StatisticsApiController::class)->userRankingsPerQuiz(auth()->id());
         });
     });
+});
+
+// Cache clearing route for InfinityFree (remove after first use for security)
+Route::get('/clear-all-cache', function() {
+    \Illuminate\Support\Facades\Artisan::call('cache:clear');
+    \Illuminate\Support\Facades\Artisan::call('view:clear');
+    \Illuminate\Support\Facades\Artisan::call('config:clear');
+    \Illuminate\Support\Facades\Artisan::call('route:clear');
+    
+    return '<h1>✅ All Caches Cleared Successfully!</h1>
+            <p>Cache cleared ✓</p>
+            <p>Views cleared ✓</p>
+            <p>Config cleared ✓</p>
+            <p>Routes cleared ✓</p>
+            <p><strong>⚠️ IMPORTANT: Remove this route from web.php after use for security!</strong></p>';
 });

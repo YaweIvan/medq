@@ -450,14 +450,154 @@ class AdminController extends Controller
         return view('admin.statistics', compact('stats'));
     }
 
-    public function quizAnalysis($quizId)
+    private function getQuizRankings($quizId)
     {
-        $quiz = Quiz::findOrFail($quizId);
         $subjects = Subject::whereHas('questions', function($query) use ($quizId) {
             $query->where('quiz_id', $quizId);
         })->get();
         
-        return view('admin.quiz_analysis', compact('quiz', 'subjects'));
+        // Get all users who attempted this quiz
+        $userIds = QuizAttempt::where('quiz_id', $quizId)
+            ->distinct()
+            ->pluck('user_id');
+        
+        $rankings = [];
+        
+        foreach ($userIds as $userId) {
+            $user = User::find($userId);
+            if (!$user) continue;
+            
+            $userStats = [
+                'user_id' => $userId,
+                'user_name' => $user->name,
+                'subjects' => [],
+                'total_correct' => 0,
+                'total_attempted' => 0,
+            ];
+            
+            // Calculate stats for each subject
+            foreach ($subjects as $subject) {
+                $subjectAttempts = QuizAttempt::where('quiz_id', $quizId)
+                    ->where('user_id', $userId)
+                    ->whereHas('question', function($query) use ($subject) {
+                        $query->where('subject_id', $subject->id);
+                    })
+                    ->get();
+                
+                $correct = $subjectAttempts->where('is_correct', true)->count();
+                $total = $subjectAttempts->count();
+                
+                $userStats['subjects'][$subject->id] = [
+                    'correct' => $correct,
+                    'total' => $total,
+                ];
+                
+                $userStats['total_correct'] += $correct;
+                $userStats['total_attempted'] += $total;
+            }
+            
+            // Calculate percentage
+            $userStats['percentage'] = $userStats['total_attempted'] > 0 
+                ? round(($userStats['total_correct'] / $userStats['total_attempted']) * 100, 2) 
+                : 0;
+            
+            $rankings[] = $userStats;
+        }
+        
+        // Sort by total correct (descending), then by percentage
+        usort($rankings, function($a, $b) {
+            if ($a['total_correct'] == $b['total_correct']) {
+                return $b['percentage'] <=> $a['percentage'];
+            }
+            return $b['total_correct'] <=> $a['total_correct'];
+        });
+        
+        // Add position
+        foreach ($rankings as $index => &$ranking) {
+            $ranking['position'] = $index + 1;
+        }
+        
+        return ['rankings' => $rankings, 'subjects' => $subjects];
+    }
+
+    public function quizAnalysis($quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $data = $this->getQuizRankings($quizId);
+        $rankings = $data['rankings'];
+        $subjects = $data['subjects'];
+        
+        return view('admin.quiz_analysis', compact('quiz', 'subjects', 'rankings'));
+    }
+
+    public function exportQuizRankings($quizId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        $data = $this->getQuizRankings($quizId);
+        $rankings = $data['rankings'];
+        $subjects = $data['subjects'];
+        
+        // Create Excel file
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        
+        // Set title
+        $sheet->setCellValue('A1', $quiz->title . ' - Overall Rankings');
+        $sheet->mergeCells('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(3 + count($subjects)) . '1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        
+        // Headers
+        $row = 3;
+        $col = 1;
+        $sheet->setCellValueByColumnAndRow($col++, $row, 'Position');
+        $sheet->setCellValueByColumnAndRow($col++, $row, 'Student Name');
+        
+        foreach ($subjects as $subject) {
+            $sheet->setCellValueByColumnAndRow($col++, $row, $subject->name);
+        }
+        
+        $sheet->setCellValueByColumnAndRow($col++, $row, 'Total');
+        $sheet->setCellValueByColumnAndRow($col++, $row, 'Percentage');
+        
+        // Style headers - bold only, no colors
+        $headerRange = 'A' . $row . ':' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col - 1) . $row;
+        $sheet->getStyle($headerRange)->getFont()->setBold(true);
+        
+        // Data rows
+        $row++;
+        foreach ($rankings as $ranking) {
+            $col = 1;
+            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['position']);
+            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['user_name']);
+            
+            foreach ($subjects as $subject) {
+                $value = isset($ranking['subjects'][$subject->id]) 
+                    ? $ranking['subjects'][$subject->id]['correct'] . '/' . $ranking['subjects'][$subject->id]['total']
+                    : '-';
+                $sheet->setCellValueByColumnAndRow($col++, $row, $value);
+            }
+            
+            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['total_correct'] . '/' . $ranking['total_attempted']);
+            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['percentage'] . '%');
+            
+            $row++;
+        }
+        
+        // Auto-size columns
+        for ($i = 1; $i < $col; $i++) {
+            $sheet->getColumnDimensionByColumn($i)->setAutoSize(true);
+        }
+        
+        // Generate file
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $fileName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $quiz->title) . '_Rankings_' . date('Y-m-d') . '.xlsx';
+        
+        // Create temporary file
+        $tempFile = tempnam(sys_get_temp_dir(), 'quiz_rankings_');
+        $writer->save($tempFile);
+        
+        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
     }
 
     public function subjectAnalysis($quizId, $subjectId)
