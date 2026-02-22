@@ -75,29 +75,29 @@
 
             <div class="question-card">
                     <div class="question-content">
-                        <h5 class="question-text">{{ $question->question }}</h5>
+                        <h5 class="question-text">{!! $question->question !!}</h5>
                         
                         <div class="options mt-4">
                             <div class="option" data-answer="A">
                                 <span class="option-label">A</span>
-                                <span class="option-text">{{ $question->option_a }}</span>
+                                <span class="option-text">{!! $question->option_a !!}</span>
                             </div>
                             <div class="option" data-answer="B">
                                 <span class="option-label">B</span>
-                                <span class="option-text">{{ $question->option_b }}</span>
+                                <span class="option-text">{!! $question->option_b !!}</span>
                             </div>
                             <div class="option" data-answer="C">
                                 <span class="option-label">C</span>
-                                <span class="option-text">{{ $question->option_c }}</span>
+                                <span class="option-text">{!! $question->option_c !!}</span>
                             </div>
                             <div class="option" data-answer="D">
                                 <span class="option-label">D</span>
-                                <span class="option-text">{{ $question->option_d }}</span>
+                                <span class="option-text">{!! $question->option_d !!}</span>
                             </div>
                             @if($question->option_e)
                             <div class="option" data-answer="E">
                                 <span class="option-label">E</span>
-                                <span class="option-text">{{ $question->option_e }}</span>
+                                <span class="option-text">{!! $question->option_e !!}</span>
                             </div>
                             @endif
                         </div>
@@ -175,6 +175,112 @@
 </style>
 
 <script>
+// Sound effects - checks for uploaded files first, falls back to generated sounds
+function playCorrectSound() {
+    // Try to play uploaded sound file
+    const audio = new Audio();
+    
+    // Try different formats
+    const formats = [
+        { src: '{{ asset("sounds/correct.mp3") }}', type: 'audio/mpeg' },
+        { src: '{{ asset("sounds/correct.wav") }}', type: 'audio/wav' },
+        { src: '{{ asset("sounds/correct.ogg") }}', type: 'audio/ogg' }
+    ];
+    
+    let played = false;
+    
+    for (let format of formats) {
+        if (audio.canPlayType(format.type)) {
+            audio.src = format.src;
+            audio.play().then(() => {
+                played = true;
+            }).catch(() => {
+                // File doesn't exist, will use generated sound
+                if (!played) playGeneratedCorrectSound();
+            });
+            break;
+        }
+    }
+    
+    // If no format supported or error, use generated sound
+    if (!played) {
+        setTimeout(() => playGeneratedCorrectSound(), 100);
+    }
+}
+
+function playGeneratedCorrectSound() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Pleasant ascending notes for correct answer
+    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+    
+    oscillator.type = 'sine';
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.4);
+}
+
+function playIncorrectSound() {
+    // Try to play uploaded sound file
+    const audio = new Audio();
+    
+    // Try different formats
+    const formats = [
+        { src: '{{ asset("sounds/incorrect.mp3") }}', type: 'audio/mpeg' },
+        { src: '{{ asset("sounds/incorrect.wav") }}', type: 'audio/wav' },
+        { src: '{{ asset("sounds/incorrect.ogg") }}', type: 'audio/ogg' }
+    ];
+    
+    let played = false;
+    
+    for (let format of formats) {
+        if (audio.canPlayType(format.type)) {
+            audio.src = format.src;
+            audio.play().then(() => {
+                played = true;
+            }).catch(() => {
+                // File doesn't exist, will use generated sound
+                if (!played) playGeneratedIncorrectSound();
+            });
+            break;
+        }
+    }
+    
+    // If no format supported or error, use generated sound
+    if (!played) {
+        setTimeout(() => playGeneratedIncorrectSound(), 100);
+    }
+}
+
+function playGeneratedIncorrectSound() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Descending note for incorrect answer
+    oscillator.frequency.setValueAtTime(392.00, audioContext.currentTime); // G4
+    oscillator.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.15); // E4
+    
+    oscillator.type = 'sine';
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const options = document.querySelectorAll('.option');
     const submitBtn = document.getElementById('submitAnswer');
@@ -294,6 +400,9 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(() => {
+            // Play incorrect sound for time expiry
+            playIncorrectSound();
+            
             // Wait 1 second before redirecting to grid
             setTimeout(() => {
                 window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
@@ -353,6 +462,13 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            // Play sound based on answer correctness
+            if (data.correct) {
+                playCorrectSound();
+            } else {
+                playIncorrectSound();
+            }
+            
             // Show visual feedback on options
             if (selectedAnswer) {
                 const selectedOption = document.querySelector('.option.selected');

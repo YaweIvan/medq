@@ -73,6 +73,10 @@
                 <i class="fas fa-user-check"></i>
                 <span>User Approvals</span>
             </a>
+            <a href="{{ route('admin.sounds') }}" class="action-card-small">
+                <i class="fas fa-volume-up"></i>
+                <span>Quiz Sounds</span>
+            </a>
             <a href="{{ route('admin.leaderboard') }}" class="action-card-small">
                 <i class="fas fa-trophy"></i>
                 <span>Leaderboard</span>

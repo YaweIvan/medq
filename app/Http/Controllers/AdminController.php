@@ -7,10 +7,13 @@ use App\Models\Quiz;
 use App\Models\Subject;
 use App\Models\Question;
 use App\Models\QuizAttempt;
+use App\Models\QuizSound;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\RichText\RichText;
 
 class AdminController extends Controller
 {
@@ -40,6 +43,14 @@ class AdminController extends Controller
             ->values();
         
         return view('admin.dashboard', compact('stats', 'topUsers'));
+    }
+
+    public function sounds()
+    {
+        // Get quiz sounds from database
+        $quizSounds = QuizSound::with('uploader')->get()->keyBy('sound_type');
+        
+        return view('admin.sounds', compact('quizSounds'));
     }
 
     public function approvals()
@@ -212,10 +223,31 @@ class AdminController extends Controller
         
         if (($handle = fopen($filePath, 'r')) !== FALSE) {
             $row = 0;
+            $columnMapping = [];
+            
             while (($data = fgetcsv($handle, 10000, $bestDelimiter)) !== FALSE) {
-                // Skip the header row
+                // Process the header row to create column mapping
                 if ($row === 0) {
                     Log::info('Header row: ' . json_encode($data));
+                    
+                    // Create case-insensitive column mapping
+                    foreach ($data as $index => $header) {
+                        $normalizedHeader = strtolower(trim($header));
+                        $columnMapping[$normalizedHeader] = $index;
+                    }
+                    
+                    // Determine column indices (try both header names and fixed positions as fallback)
+                    $numCol = $this->getColumnIndex($columnMapping, 'number', 'num', '#', 'no') ?? 0;
+                    $questionCol = $this->getColumnIndex($columnMapping, 'question', 'q') ?? 1;
+                    $optionACol = $this->getColumnIndex($columnMapping, 'option a', 'a', 'option_a') ?? 2;
+                    $optionBCol = $this->getColumnIndex($columnMapping, 'option b', 'b', 'option_b') ?? 3;
+                    $optionCCol = $this->getColumnIndex($columnMapping, 'option c', 'c', 'option_c') ?? 4;
+                    $optionDCol = $this->getColumnIndex($columnMapping, 'option d', 'd', 'option_d') ?? 5;
+                    $optionECol = $this->getColumnIndex($columnMapping, 'option e', 'e', 'option_e') ?? 6;
+                    $answerCol = $this->getColumnIndex($columnMapping, 'correct answer', 'answer', 'ans', 'correct') ?? 7;
+                    
+                    Log::info("CSV Column mapping: Question={$questionCol}, A={$optionACol}, B={$optionBCol}, C={$optionCCol}, D={$optionDCol}, E={$optionECol}, Answer={$answerCol}");
+                    
                     $row++;
                     continue;
                 }
@@ -225,29 +257,26 @@ class AdminController extends Controller
                     Log::info('Row ' . $row . ' data: ' . json_encode($data) . ' (columns: ' . count($data) . ')');
                 }
                 
-                // Ensure we have at least 7 columns (Number, Question, A, B, C, D, Answer)
-                // Can have 8 columns if Option E is included (Number, Question, A, B, C, D, E, Answer)
-                if (count($data) >= 7) {
+                // Ensure we have data
+                if (count($data) > max($questionCol, $optionACol, $optionBCol, $optionCCol, $optionDCol, $answerCol)) {
                     // Clean up the data
-                    $questionText = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[1] ?? ''));
-                    $optionA = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[2] ?? ''));
-                    $optionB = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[3] ?? ''));
-                    $optionC = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[4] ?? ''));
-                    $optionD = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[5] ?? ''));
+                    $questionText = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[$questionCol] ?? ''));
+                    $optionA = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[$optionACol] ?? ''));
+                    $optionB = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[$optionBCol] ?? ''));
+                    $optionC = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[$optionCCol] ?? ''));
+                    $optionD = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[$optionDCol] ?? ''));
                     
-                    // Check if we have 8 columns (with option E) or 7 columns (without)
-                    if (count($data) >= 8) {
-                        // 8 columns: Number, Question, A, B, C, D, E, Answer
-                        $optionE = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[6]));
-                        $correctAnswer = strtoupper(trim($data[7] ?? ''));
+                    // Check if option E column exists and has data
+                    if (isset($data[$optionECol])) {
+                        $optionE = trim(str_replace(["\r\n", "\r", "\n"], ' ', $data[$optionECol]));
                         if (empty($optionE)) {
                             $optionE = null;
                         }
                     } else {
-                        // 7 columns: Number, Question, A, B, C, D, Answer (no option E)
                         $optionE = null;
-                        $correctAnswer = strtoupper(trim($data[6] ?? ''));
                     }
+                    
+                    $correctAnswer = strtoupper(trim($data[$answerCol] ?? ''));
                     
                     // Validate the data - option E is optional
                     $hasValidOptions = !empty($questionText) && !empty($optionA) && !empty($optionB) && !empty($optionC) && !empty($optionD);
@@ -302,6 +331,90 @@ class AdminController extends Controller
         return $questionsCreated;
     }
     
+    /**
+     * Extract formatted text from Excel cell and convert to HTML
+     * This preserves bold text and colors from the Excel file
+     */
+    private function extractFormattedText($cell)
+    {
+        $cellValue = $cell->getValue();
+        
+        // If the cell contains rich text
+        if ($cellValue instanceof RichText) {
+            $html = '';
+            foreach ($cellValue->getRichTextElements() as $element) {
+                $text = $element->getText();
+                $font = $element->getFont();
+                
+                if ($font !== null) {
+                    $isBold = $font->getBold();
+                    $color = $font->getColor();
+                    
+                    // Start building HTML
+                    $styles = [];
+                    
+                    // Add color if present
+                    if ($color !== null) {
+                        $colorCode = $color->getRGB();
+                        if ($colorCode && $colorCode !== '000000') {  // Skip black text
+                            $styles[] = "color: #{$colorCode}";
+                        }
+                    }
+                    
+                    // Build the styled text
+                    if ($isBold && !empty($styles)) {
+                        $styleAttr = ' style="' . implode('; ', $styles) . '"';
+                        $html .= "<strong{$styleAttr}>" . htmlspecialchars($text) . "</strong>";
+                    } elseif ($isBold) {
+                        $html .= "<strong>" . htmlspecialchars($text) . "</strong>";
+                    } elseif (!empty($styles)) {
+                        $styleAttr = ' style="' . implode('; ', $styles) . '"';
+                        $html .= "<span{$styleAttr}>" . htmlspecialchars($text) . "</span>";
+                    } else {
+                        $html .= htmlspecialchars($text);
+                    }
+                } else {
+                    $html .= htmlspecialchars($text);
+                }
+            }
+            return $html;
+        }
+        
+        // Regular text without formatting
+        return htmlspecialchars((string)$cellValue);
+    }
+    
+    /**
+     * Get column headers from first row and make them case-insensitive
+     */
+    private function getColumnMapping($worksheet)
+    {
+        $headerRow = $worksheet->rangeToArray('A1:H1', NULL, TRUE, FALSE)[0];
+        $mapping = [];
+        
+        foreach ($headerRow as $index => $header) {
+            $normalizedHeader = strtolower(trim($header));
+            $mapping[$normalizedHeader] = $index;
+        }
+        
+        return $mapping;
+    }
+    
+    /**
+     * Get column index by name (case-insensitive)
+     */
+    private function getColumnIndex($mapping, ...$possibleNames)
+    {
+        foreach ($possibleNames as $name) {
+            $normalized = strtolower(trim($name));
+            if (isset($mapping[$normalized])) {
+                return $mapping[$normalized];
+            }
+        }
+        
+        return null;
+    }
+    
     private function processExcelFileContent($file, $quizId, $subjectId)
     {
         $questionsCreated = 0;
@@ -320,97 +433,108 @@ class AdminController extends Controller
             
             Log::info("Excel file loaded: {$highestRow} rows, columns up to {$highestColumn}");
             
+            // Get column mapping for case-insensitive headers
+            $columnMapping = $this->getColumnMapping($worksheet);
+            
+            // Determine column indices (try both header names and fixed positions)
+            $numCol = $this->getColumnIndex($columnMapping, 'number', 'num', '#', 'no') ?? 0;
+            $questionCol = $this->getColumnIndex($columnMapping, 'question', 'q') ?? 1;
+            $optionACol = $this->getColumnIndex($columnMapping, 'option a', 'a', 'option_a') ?? 2;
+            $optionBCol = $this->getColumnIndex($columnMapping, 'option b', 'b', 'option_b') ?? 3;
+            $optionCCol = $this->getColumnIndex($columnMapping, 'option c', 'c', 'option_c') ?? 4;
+            $optionDCol = $this->getColumnIndex($columnMapping, 'option d', 'd', 'option_d') ?? 5;
+            $optionECol = $this->getColumnIndex($columnMapping, 'option e', 'e', 'option_e') ?? 6;
+            $answerCol = $this->getColumnIndex($columnMapping, 'correct answer', 'answer', 'ans', 'correct') ?? 7;
+            
+            Log::info("Column mapping: Question={$questionCol}, A={$optionACol}, B={$optionBCol}, C={$optionCCol}, D={$optionDCol}, E={$optionECol}, Answer={$answerCol}");
+            
             // Process each row (skip header row)
             for ($row = 2; $row <= $highestRow; $row++) {
-                $rowData = $worksheet->rangeToArray(
-                    'A' . $row . ':H' . $row,
-                    NULL,
-                    TRUE,
-                    FALSE
-                )[0];
+                // Extract formatted text from cells
+                $questionText = $this->extractFormattedText($worksheet->getCellByColumnAndRow($questionCol + 1, $row));
+                $optionA = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionACol + 1, $row));
+                $optionB = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionBCol + 1, $row));
+                $optionC = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionCCol + 1, $row));
+                $optionD = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionDCol + 1, $row));
+                $optionE = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionECol + 1, $row));
+                $correctAnswer = strtoupper(trim(strip_tags($this->extractFormattedText($worksheet->getCellByColumnAndRow($answerCol + 1, $row)))));
+                
+                // Clean up whitespace but preserve HTML formatting
+                $questionText = trim(preg_replace('/\s+/', ' ', $questionText));
+                $optionA = trim(preg_replace('/\s+/', ' ', $optionA));
+                $optionB = trim(preg_replace('/\s+/', ' ', $optionB));
+                $optionC = trim(preg_replace('/\s+/', ' ', $optionC));
+                $optionD = trim(preg_replace('/\s+/', ' ', $optionD));
+                $optionE = trim(preg_replace('/\s+/', ' ', $optionE));
+                
+                // Remove HTML tags to check if text is actually empty
+                $questionTextPlain = strip_tags($questionText);
+                $optionAPlain = strip_tags($optionA);
+                $optionBPlain = strip_tags($optionB);
+                $optionCPlain = strip_tags($optionC);
+                $optionDPlain = strip_tags($optionD);
+                $optionEPlain = strip_tags($optionE);
                 
                 if ($row <= 4) {
-                    Log::info("Row {$row} data: " . json_encode($rowData));
+                    Log::info("Row {$row} - Question: {$questionTextPlain}, Answer: {$correctAnswer}");
                 }
                 
-                // Ensure we have at least 7 columns (can have 8 for option E)
-                if (count($rowData) >= 7) {
-                    $questionText = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[1] ?? ''));
-                    $optionA = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[2] ?? ''));
-                    $optionB = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[3] ?? ''));
-                    $optionC = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[4] ?? ''));
-                    $optionD = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[5] ?? ''));
-                    
-                    // Check if we have 8 columns (with option E) or 7 columns (without)
-                    if (count($rowData) >= 8) {
-                        // 8 columns: Number, Question, A, B, C, D, E, Answer
-                        $optionE = trim(str_replace(["\r\n", "\r", "\n"], ' ', $rowData[6]));
-                        $correctAnswer = strtoupper(trim($rowData[7] ?? ''));
-                        if (empty($optionE)) {
-                            $optionE = null;
+                // If option E is empty, set to null
+                if (empty($optionEPlain)) {
+                    $optionE = null;
+                }
+                
+                // Validate the data - option E is optional
+                $hasValidOptions = !empty($questionTextPlain) && !empty($optionAPlain) && !empty($optionBPlain) && !empty($optionCPlain) && !empty($optionDPlain);
+                $hasValidAnswer = in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E']);
+                
+                // If answer is E, option E must be present
+                if ($correctAnswer === 'E' && empty($optionEPlain)) {
+                    $hasValidAnswer = false;
+                }
+                
+                if ($hasValidOptions && $hasValidAnswer) {
+                    try {
+                        $questionData = [
+                            'quiz_id' => $quizId,
+                            'subject_id' => $subjectId,
+                            'question' => $questionText,
+                            'option_a' => $optionA,
+                            'option_b' => $optionB,
+                            'option_c' => $optionC,
+                            'option_d' => $optionD,
+                            'correct_answer' => $correctAnswer,
+                        ];
+                        
+                        if (!empty($optionE)) {
+                            $questionData['option_e'] = $optionE;
                         }
-                    } else {
-                        // 7 columns: Number, Question, A, B, C, D, Answer (no option E)
-                        $optionE = null;
-                        $correctAnswer = strtoupper(trim($rowData[6] ?? ''));
-                    }
-                    
-                    // Validate the data - option E is optional
-                    $hasValidOptions = !empty($questionText) && !empty($optionA) && !empty($optionB) && !empty($optionC) && !empty($optionD);
-                    $hasValidAnswer = in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E']);
-                    
-                    // If answer is E, option E must be present
-                    if ($correctAnswer === 'E' && empty($optionE)) {
-                        $hasValidAnswer = false;
-                    }
-                    
-                    if ($hasValidOptions && $hasValidAnswer) {
-                        try {
-                            $questionData = [
-                                'quiz_id' => $quizId,
-                                'subject_id' => $subjectId,
-                                'question' => $questionText,
-                                'option_a' => $optionA,
-                                'option_b' => $optionB,
-                                'option_c' => $optionC,
-                                'option_d' => $optionD,
-                                'correct_answer' => $correctAnswer,
-                            ];
-                            
-                            if (!empty($optionE)) {
-                                $questionData['option_e'] = $optionE;
-                            }
-                            
-                            Question::create($questionData);
-                            $questionsCreated++;
-                            if ($row <= 4) {
-                                Log::info("Question from row {$row} created successfully");
-                            }
-                        } catch (\Exception $e) {
-                            Log::error("Question creation error on row {$row}: " . $e->getMessage());
-                            $questionsSkipped++;
-                            $skippedReasons[] = "Row {$row}: Database error - " . $e->getMessage();
+                        
+                        Question::create($questionData);
+                        $questionsCreated++;
+                        if ($row <= 4) {
+                            Log::info("Question from row {$row} created successfully");
                         }
-                    } else {
+                    } catch (\Exception $e) {
+                        Log::error("Question creation error on row {$row}: " . $e->getMessage());
                         $questionsSkipped++;
-                        $reason = [];
-                        if (empty($questionText)) $reason[] = 'empty question';
-                        if (empty($optionA)) $reason[] = 'empty option A';
-                        if (empty($optionB)) $reason[] = 'empty option B';
-                        if (empty($optionC)) $reason[] = 'empty option C';
-                        if (empty($optionD)) $reason[] = 'empty option D';
-                        if (!$hasValidAnswer) $reason[] = "invalid answer '{$correctAnswer}'";
-                        if ($correctAnswer === 'E' && empty($optionE)) $reason[] = 'answer is E but option E is empty';
-                        
-                        $reasonText = implode(', ', $reason);
-                        $skippedReasons[] = "Row {$row}: {$reasonText}";
-                        
-                        Log::warning("Skipping row {$row} - validation failed: {$reasonText}");
+                        $skippedReasons[] = "Row {$row}: Database error - " . $e->getMessage();
                     }
                 } else {
                     $questionsSkipped++;
-                    $skippedReasons[] = "Row {$row}: only " . count($rowData) . " columns (expected 7 or 8)";
-                    Log::warning("Row {$row} has only " . count($rowData) . " columns, expected 7 or 8");
+                    $reason = [];
+                    if (empty($questionTextPlain)) $reason[] = 'empty question';
+                    if (empty($optionAPlain)) $reason[] = 'empty option A';
+                    if (empty($optionBPlain)) $reason[] = 'empty option B';
+                    if (empty($optionCPlain)) $reason[] = 'empty option C';
+                    if (empty($optionDPlain)) $reason[] = 'empty option D';
+                    if (!$hasValidAnswer) $reason[] = "invalid answer '{$correctAnswer}'";
+                    if ($correctAnswer === 'E' && empty($optionEPlain)) $reason[] = 'answer is E but option E is empty';
+                    
+                    $reasonText = implode(', ', $reason);
+                    $skippedReasons[] = "Row {$row}: {$reasonText}";
+                    
+                    Log::warning("Skipping row {$row} - validation failed: {$reasonText}");
                 }
             }
             
@@ -664,31 +788,11 @@ class AdminController extends Controller
     public function quizLeaderboard($quizId)
     {
         $quiz = Quiz::with('questions', 'users')->findOrFail($quizId);
+        $data = $this->getQuizRankings($quizId);
+        $rankings = $data['rankings'];
+        $subjects = $data['subjects'];
         
-        $leaderboard = User::where('role', 'quizzer')
-            ->whereHas('quizzes', function($q) use ($quizId) {
-                $q->where('quizzes.id', $quizId);
-            })
-            ->withCount(['attempts as total_attempts' => function($q) use ($quizId) {
-                $q->where('quiz_id', $quizId);
-            }])
-            ->withCount(['attempts as correct_answers' => function($q) use ($quizId) {
-                $q->where('quiz_id', $quizId)->where('is_correct', true);
-            }])
-            ->withCount(['attempts as failed_answers' => function($q) use ($quizId) {
-                $q->where('quiz_id', $quizId)->where('is_correct', false);
-            }])
-            ->get()
-            ->map(function($user) {
-                $user->accuracy = $user->total_attempts > 0 
-                    ? round(($user->correct_answers / $user->total_attempts) * 100, 2) 
-                    : 0;
-                return $user;
-            })
-            ->sortByDesc('correct_answers')
-            ->values();
-
-        return view('admin.quiz_leaderboard', compact('quiz', 'leaderboard'));
+        return view('admin.quiz_leaderboard', compact('quiz', 'subjects', 'rankings'));
     }
 
     public function studentQuizDetails($quizId, $userId)
@@ -713,29 +817,6 @@ class AdminController extends Controller
         return view('admin.student_quiz_details', compact('quiz', 'user', 'attempts', 'stats'));
     }
 
-    public function randomizer()
-    {
-        $quizzes = Quiz::where('is_active', true)->get();
-        return view('admin.quizzes.randomizer', compact('quizzes'));
-    }
-
-    public function randomizeQuiz(Request $request)
-    {
-        $request->validate([
-            'quiz_id' => 'required|exists:quizzes,id',
-            'type' => 'required|in:questions,users,both',
-        ]);
-
-        $quiz = Quiz::findOrFail($request->quiz_id);
-        
-        if ($request->type === 'questions' || $request->type === 'both') {
-            // Reset all questions to unused and randomize order
-            $quiz->questions()->update(['is_used' => false]);
-        }
-        
-        return back()->with('success', 'Quiz randomized successfully.');
-    }
-    
     public function deleteQuiz($id)
     {
         Quiz::findOrFail($id)->delete();
@@ -869,6 +950,158 @@ class AdminController extends Controller
         } catch (\Exception $e) {
             \DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function deleteQuizSubject($quizId, $subjectId)
+    {
+        $quiz = Quiz::findOrFail($quizId);
+        
+        \DB::beginTransaction();
+        
+        try {
+            // Get all question IDs for this quiz and subject
+            $questionIds = Question::where('quiz_id', $quizId)
+                                 ->where('subject_id', $subjectId)
+                                 ->pluck('id');
+            
+            // Delete quiz attempts for these questions
+            if ($questionIds->isNotEmpty()) {
+                QuizAttempt::whereIn('question_id', $questionIds)->delete();
+            }
+            
+            // Delete all questions for this quiz and subject
+            $deletedCount = Question::where('quiz_id', $quizId)
+                                  ->where('subject_id', $subjectId)
+                                  ->delete();
+            
+            \DB::commit();
+            
+            return response()->json([
+                'success' => true, 
+                'message' => "Subject deleted successfully. {$deletedCount} questions removed."
+            ]);
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json([
+                'success' => false, 
+                'message' => 'Failed to delete subject: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function uploadSound(Request $request)
+    {
+        DB::beginTransaction();
+        
+        try {
+            $request->validate([
+                'sound_type' => 'required|in:correct,incorrect',
+                'sound_file' => 'required|file|mimes:mp3,wav,ogg|max:2048', // Max 2MB
+            ]);
+
+            $soundType = $request->sound_type;
+            $file = $request->file('sound_file');
+            
+            // Create sounds directory if it doesn't exist
+            $soundsPath = public_path('sounds');
+            if (!file_exists($soundsPath)) {
+                mkdir($soundsPath, 0755, true);
+            }
+
+            // Check if sound already exists in database
+            $existingSound = QuizSound::where('sound_type', $soundType)->first();
+            
+            if ($existingSound) {
+                // Delete old file
+                $oldFilePath = public_path($existingSound->file_path);
+                if (file_exists($oldFilePath)) {
+                    unlink($oldFilePath);
+                }
+            }
+
+            // Get the file extension and generate filename
+            $extension = $file->getClientOriginalExtension();
+            $fileName = $soundType . '.' . $extension;
+            $filePath = 'sounds/' . $fileName;
+            
+            // Get file info BEFORE moving (important - file info not available after move)
+            $mimeType = $file->getClientMimeType();
+            $fileSize = $file->getSize();
+            
+            // Save the new file
+            $file->move($soundsPath, $fileName);
+
+            // Save or update in database
+            QuizSound::updateOrCreate(
+                ['sound_type' => $soundType],
+                [
+                    'file_name' => $fileName,
+                    'file_path' => $filePath,
+                    'mime_type' => $mimeType,
+                    'file_size' => $fileSize,
+                    'uploaded_by' => Auth::id(),
+                ]
+            );
+
+            DB::commit();
+            Log::info("Sound uploaded successfully: {$fileName} by user " . Auth::id());
+
+            return redirect()->route('admin.sounds')
+                ->with('audio_success', ucfirst($soundType) . ' answer sound uploaded successfully!');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return redirect()->route('admin.sounds')
+                ->with('audio_error', 'Invalid file. Please upload MP3, WAV, or OGG file (max 2MB).');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sound upload error: ' . $e->getMessage());
+            return redirect()->route('admin.sounds')
+                ->with('audio_error', 'Error uploading sound: ' . $e->getMessage());
+        }
+    }
+
+    public function deleteSound(Request $request)
+    {
+        DB::beginTransaction();
+        
+        try {
+            $request->validate([
+                'sound_type' => 'required|in:correct,incorrect',
+            ]);
+
+            $soundType = $request->sound_type;
+            
+            // Find the sound in database
+            $sound = QuizSound::where('sound_type', $soundType)->first();
+
+            if (!$sound) {
+                return redirect()->route('admin.sounds')
+                    ->with('audio_error', 'Sound record not found in database.');
+            }
+
+            // Delete the physical file
+            $filePath = public_path($sound->file_path);
+            if (file_exists($filePath)) {
+                unlink($filePath);
+                Log::info("Sound file deleted: {$sound->file_name}");
+            }
+
+            // Delete from database
+            $sound->delete();
+            
+            DB::commit();
+
+            return redirect()->route('admin.sounds')
+                ->with('audio_success', ucfirst($soundType) . ' answer sound deleted. Using default generated sound.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sound deletion error: ' . $e->getMessage());
+            return redirect()->route('admin.sounds')
+                ->with('audio_error', 'Error deleting sound: ' . $e->getMessage());
         }
     }
 }

@@ -26,10 +26,6 @@
             <i class="fas fa-edit"></i>
             Edit Quiz
         </a>
-        <a href="{{ route('admin.quizzes.randomizer') }}" class="{{ request()->routeIs('admin.quizzes.randomizer') ? 'active' : '' }}">
-            <i class="fas fa-random"></i>
-            Randomizer
-        </a>
     </div>
     
     <hr>
@@ -39,7 +35,7 @@
             <i class="fas fa-chart-bar"></i>
             Statistics
         </a>
-        <a href="{{ route('admin.leaderboard') }}" class="{{ request()->routeIs('admin.leaderboard') ? 'active' : '' }}">
+        <a href="{{ route('admin.leaderboard') }}" class="{{ request()->routeIs('admin.leaderboard') || request()->routeIs('admin.quiz.leaderboard') || request()->routeIs('admin.student.quiz.details') ? 'active' : '' }}">
             <i class="fas fa-trophy"></i>
             Leaderboard
         </a>

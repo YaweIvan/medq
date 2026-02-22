@@ -45,6 +45,9 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::get('/tutorial', function() { return view('admin.tutorial'); })->name('tutorial');
     Route::get('/users/api', [AdminController::class, 'getUsersApi'])->name('users.api');
     Route::get('/download-template', [AdminController::class, 'downloadTemplate'])->name('download.template');
+    Route::get('/sounds', [AdminController::class, 'sounds'])->name('sounds');
+    Route::post('/upload-sound', [AdminController::class, 'uploadSound'])->name('upload-sound');
+    Route::delete('/delete-sound', [AdminController::class, 'deleteSound'])->name('delete-sound');
     
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/quiz-stats', [\App\Http\Controllers\StatisticsApiController::class, 'quizStats']);
@@ -64,8 +67,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         Route::post('/{id}/update-users', [AdminController::class, 'updateQuizUsers'])->name('update-users');
         Route::post('/{id}/reset', [AdminController::class, 'resetQuiz'])->name('reset');
         Route::post('/{id}/add-subjects', [AdminController::class, 'addSubjects'])->name('add-subjects');
-        Route::get('/randomizer', [AdminController::class, 'randomizer'])->name('randomizer');
-        Route::post('/randomize', [AdminController::class, 'randomizeQuiz'])->name('randomize');
+        Route::delete('/{quizId}/subjects/{subjectId}', [AdminController::class, 'deleteQuizSubject'])->name('delete-subject');
         Route::delete('/{id}', [AdminController::class, 'deleteQuiz'])->name('delete');
         Route::post('/{id}/toggle', [AdminController::class, 'toggleQuizStatus'])->name('toggle');
     });

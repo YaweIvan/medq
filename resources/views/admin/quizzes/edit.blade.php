@@ -64,7 +64,7 @@
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="fw-bold text-dark">Edit Quiz: {{ $quiz->title }}</h2>
-                <a href="{{ route('admin.quizzes.index') }}" class="btn btn-secondary">
+                <a href="{{ route('admin.quizzes.select-edit') }}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Quizzes
                 </a>
             </div>
@@ -112,9 +112,18 @@
                         $subjects = $quiz->questions->groupBy('subject.name');
                     @endphp
                     @foreach($subjects as $subjectName => $questions)
-                        <div class="subject-info mb-3 p-3 border rounded">
-                            <h6 class="fw-bold">{{ $subjectName }}</h6>
-                            <p class="mb-0 text-muted">{{ $questions->count() }} questions</p>
+                        @php
+                            $subjectId = $questions->first()->subject_id;
+                        @endphp
+                        <div class="subject-info mb-3 p-3 border rounded d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold mb-1">{{ $subjectName }}</h6>
+                                <p class="mb-0 text-muted">{{ $questions->count() }} questions</p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    onclick="deleteSubject({{ $quiz->id }}, {{ $subjectId }}, '{{ addslashes($subjectName) }}')">
+                                <i class="fas fa-trash me-1"></i>Delete
+                            </button>
                         </div>
                     @endforeach
                 </div>
@@ -371,9 +380,9 @@
                 alert(`User assignments updated! ${data.assigned_count} user(s) assigned.`);
                 bootstrap.Modal.getInstance(document.getElementById('manageUsersModal'))?.hide();
                 
-                // Redirect to quizzes index
+                // Reload current edit page
                 setTimeout(() => {
-                    window.location.href = '{{ route("admin.quizzes.index") }}';
+                    window.location.reload();
                 }, 500);
             } else {
                 alert('Error updating user assignments. Please try again.');
@@ -408,7 +417,7 @@
             
             if (response.ok) {
                 alert('Quiz updated successfully!');
-                window.location.href = '{{ route("admin.quizzes.index") }}';
+                window.location.reload();
             } else {
                 alert('Error updating quiz. Please try again.');
             }
@@ -513,6 +522,35 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error uploading subjects. Please try again.');
+        }
+    }
+
+    async function deleteSubject(quizId, subjectId, subjectName) {
+        if (!confirm(`Are you sure you want to delete "${subjectName}" and all its questions from this quiz?`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/admin/quizzes/${quizId}/subjects/${subjectId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('[name="_token"]').value,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error deleting subject. Please try again.');
         }
     }
     </script>

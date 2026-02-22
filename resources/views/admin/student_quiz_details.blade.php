@@ -82,35 +82,35 @@
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <span class="badge bg-secondary">{{ $attempt->question->subject->name ?? 'N/A' }}</span>
                                             </div>
-                                            <h6 class="fw-bold mb-3">{{ $attempt->question->question_text }}</h6>
+                                            <h6 class="fw-bold mb-3">{!! $attempt->question->question !!}</h6>
                                             <div class="options">
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'A' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>A:</strong> {{ $attempt->question->option_a }}
+                                                    <strong>A:</strong> {!! $attempt->question->option_a !!}
                                                     @if($attempt->selected_answer == 'A')
                                                         <i class="fas fa-check-circle float-end"></i>
                                                     @endif
                                                 </div>
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'B' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>B:</strong> {{ $attempt->question->option_b }}
+                                                    <strong>B:</strong> {!! $attempt->question->option_b !!}
                                                     @if($attempt->selected_answer == 'B')
                                                         <i class="fas fa-check-circle float-end"></i>
                                                     @endif
                                                 </div>
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'C' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>C:</strong> {{ $attempt->question->option_c }}
+                                                    <strong>C:</strong> {!! $attempt->question->option_c !!}
                                                     @if($attempt->selected_answer == 'C')
                                                         <i class="fas fa-check-circle float-end"></i>
                                                     @endif
                                                 </div>
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'D' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>D:</strong> {{ $attempt->question->option_d }}
+                                                    <strong>D:</strong> {!! $attempt->question->option_d !!}
                                                     @if($attempt->selected_answer == 'D')
                                                         <i class="fas fa-check-circle float-end"></i>
                                                     @endif
                                                 </div>
                                                 @if($attempt->question->option_e)
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'E' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>E:</strong> {{ $attempt->question->option_e }}
+                                                    <strong>E:</strong> {!! $attempt->question->option_e !!}
                                                     @if($attempt->selected_answer == 'E')
                                                         <i class="fas fa-check-circle float-end"></i>
                                                     @endif
@@ -147,10 +147,10 @@
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <span class="badge bg-secondary">{{ $attempt->question->subject->name ?? 'N/A' }}</span>
                                             </div>
-                                            <h6 class="fw-bold mb-3">{{ $attempt->question->question_text }}</h6>
+                                            <h6 class="fw-bold mb-3">{!! $attempt->question->question !!}</h6>
                                             <div class="options">
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'A' ? 'bg-success text-white' : ($attempt->selected_answer == 'A' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>A:</strong> {{ $attempt->question->option_a }}
+                                                    <strong>A:</strong> {!! $attempt->question->option_a !!}
                                                     @if($attempt->selected_answer == 'A')
                                                         <i class="fas fa-times-circle float-end"></i>
                                                     @endif
@@ -159,7 +159,7 @@
                                                     @endif
                                                 </div>
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'B' ? 'bg-success text-white' : ($attempt->selected_answer == 'B' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>B:</strong> {{ $attempt->question->option_b }}
+                                                    <strong>B:</strong> {!! $attempt->question->option_b !!}
                                                     @if($attempt->selected_answer == 'B')
                                                         <i class="fas fa-times-circle float-end"></i>
                                                     @endif
@@ -168,7 +168,7 @@
                                                     @endif
                                                 </div>
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'C' ? 'bg-success text-white' : ($attempt->selected_answer == 'C' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>C:</strong> {{ $attempt->question->option_c }}
+                                                    <strong>C:</strong> {!! $attempt->question->option_c !!}
                                                     @if($attempt->selected_answer == 'C')
                                                         <i class="fas fa-times-circle float-end"></i>
                                                     @endif
@@ -177,7 +177,7 @@
                                                     @endif
                                                 </div>
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'D' ? 'bg-success text-white' : ($attempt->selected_answer == 'D' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>D:</strong> {{ $attempt->question->option_d }}
+                                                    <strong>D:</strong> {!! $attempt->question->option_d !!}
                                                     @if($attempt->selected_answer == 'D')
                                                         <i class="fas fa-times-circle float-end"></i>
                                                     @endif
@@ -187,7 +187,7 @@
                                                 </div>
                                                 @if($attempt->question->option_e)
                                                 <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'E' ? 'bg-success text-white' : ($attempt->selected_answer == 'E' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>E:</strong> {{ $attempt->question->option_e }}
+                                                    <strong>E:</strong> {!! $attempt->question->option_e !!}
                                                     @if($attempt->selected_answer == 'E')
                                                         <i class="fas fa-times-circle float-end"></i>
                                                     @endif

@@ -37,39 +37,39 @@
                             </div>
                             
                             <div class="question-text mb-4">
-                                <p class="fs-5 text-dark mb-0">{{ $question->question }}</p>
+                                <p class="fs-5 text-dark mb-0">{!! $question->question !!}</p>
                             </div>
                             
                             <div class="options-grid">
                                 <button class="option-btn" onclick="submitAnswer({{ $question->id }}, 'A')">
                                     <div class="d-flex align-items-center">
                                         <span class="option-letter me-3">A</span>
-                                        <span>{{ $question->option_a }}</span>
+                                        <span>{!! $question->option_a !!}</span>
                                     </div>
                                 </button>
                                 <button class="option-btn" onclick="submitAnswer({{ $question->id }}, 'B')">
                                     <div class="d-flex align-items-center">
                                         <span class="option-letter me-3">B</span>
-                                        <span>{{ $question->option_b }}</span>
+                                        <span>{!! $question->option_b !!}</span>
                                     </div>
                                 </button>
                                 <button class="option-btn" onclick="submitAnswer({{ $question->id }}, 'C')">
                                     <div class="d-flex align-items-center">
                                         <span class="option-letter me-3">C</span>
-                                        <span>{{ $question->option_c }}</span>
+                                        <span>{!! $question->option_c !!}</span>
                                     </div>
                                 </button>
                                 <button class="option-btn" onclick="submitAnswer({{ $question->id }}, 'D')">
                                     <div class="d-flex align-items-center">
                                         <span class="option-letter me-3">D</span>
-                                        <span>{{ $question->option_d }}</span>
+                                        <span>{!! $question->option_d !!}</span>
                                     </div>
                                 </button>
                                 @if($question->option_e)
                                 <button class="option-btn" onclick="submitAnswer({{ $question->id }}, 'E')">
                                     <div class="d-flex align-items-center">
                                         <span class="option-letter me-3">E</span>
-                                        <span>{{ $question->option_e }}</span>
+                                        <span>{!! $question->option_e !!}</span>
                                     </div>
                                 </button>
                                 @endif
@@ -125,6 +125,112 @@
     </style>
 
     <script>
+        // Sound effects - checks for uploaded files first, falls back to generated sounds
+        function playCorrectSound() {
+            // Try to play uploaded sound file
+            const audio = new Audio();
+            
+            // Try different formats
+            const formats = [
+                { src: '{{ asset("sounds/correct.mp3") }}', type: 'audio/mpeg' },
+                { src: '{{ asset("sounds/correct.wav") }}', type: 'audio/wav' },
+                { src: '{{ asset("sounds/correct.ogg") }}', type: 'audio/ogg' }
+            ];
+            
+            let played = false;
+            
+            for (let format of formats) {
+                if (audio.canPlayType(format.type)) {
+                    audio.src = format.src;
+                    audio.play().then(() => {
+                        played = true;
+                    }).catch(() => {
+                        // File doesn't exist, will use generated sound
+                        if (!played) playGeneratedCorrectSound();
+                    });
+                    break;
+                }
+            }
+            
+            // If no format supported or error, use generated sound
+            if (!played) {
+                setTimeout(() => playGeneratedCorrectSound(), 100);
+            }
+        }
+        
+        function playGeneratedCorrectSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Pleasant ascending notes for correct answer
+            oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+            oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+            oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+            
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+        }
+        
+        function playIncorrectSound() {
+            // Try to play uploaded sound file
+            const audio = new Audio();
+            
+            // Try different formats
+            const formats = [
+                { src: '{{ asset("sounds/incorrect.mp3") }}', type: 'audio/mpeg' },
+                { src: '{{ asset("sounds/incorrect.wav") }}', type: 'audio/wav' },
+                { src: '{{ asset("sounds/incorrect.ogg") }}', type: 'audio/ogg' }
+            ];
+            
+            let played = false;
+            
+            for (let format of formats) {
+                if (audio.canPlayType(format.type)) {
+                    audio.src = format.src;
+                    audio.play().then(() => {
+                        played = true;
+                    }).catch(() => {
+                        // File doesn't exist, will use generated sound
+                        if (!played) playGeneratedIncorrectSound();
+                    });
+                    break;
+                }
+            }
+            
+            // If no format supported or error, use generated sound
+            if (!played) {
+                setTimeout(() => playGeneratedIncorrectSound(), 100);
+            }
+        }
+        
+        function playGeneratedIncorrectSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Descending note for incorrect answer
+            oscillator.frequency.setValueAtTime(392.00, audioContext.currentTime); // G4
+            oscillator.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.15); // E4
+            
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+        
         // Keep session alive during quiz
         setInterval(() => {
             fetch('{{ route("quizzer.api.check-updates") }}').catch(() => {});
@@ -153,6 +259,13 @@
             })
             .then(response => response.json())
             .then(data => {
+                // Play sound based on answer correctness
+                if (data.correct) {
+                    playCorrectSound();
+                } else {
+                    playIncorrectSound();
+                }
+                
                 options.forEach(btn => {
                     const btnText = btn.textContent.trim();
                     if (btnText.startsWith(selectedAnswer)) {

@@ -48,7 +48,7 @@
                     <div class="card">
                         <div class="card-body text-center">
                             <i class="fas fa-clipboard-check fa-2x text-info mb-2"></i>
-                            <h3 class="mb-0">{{ $leaderboard->where('total_attempts', '>', 0)->count() }}</h3>
+                            <h3 class="mb-0">{{ count($rankings) }}</h3>
                             <small class="text-muted">Students Attempted</small>
                         </div>
                     </div>
@@ -59,8 +59,8 @@
                             <i class="fas fa-chart-line fa-2x text-warning mb-2"></i>
                             <h3 class="mb-0">
                                 @php
-                                    $totalAttempts = $leaderboard->sum('total_attempts');
-                                    $totalCorrect = $leaderboard->sum('correct_answers');
+                                    $totalAttempts = array_sum(array_column($rankings, 'total_attempted'));
+                                    $totalCorrect = array_sum(array_column($rankings, 'total_correct'));
                                     $avgAccuracy = $totalAttempts > 0 ? round(($totalCorrect / $totalAttempts) * 100, 1) : 0;
                                 @endphp
                                 {{ $avgAccuracy }}%
@@ -71,72 +71,72 @@
                 </div>
             </div>
 
-            <!-- Leaderboard Table -->
-            <div class="card">
+            <!-- Overall Rankings Table -->
+            @if(count($rankings) > 0)
+            <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white">
-                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Student Rankings</h5>
+                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Overall Quiz Rankings</h5>
                 </div>
-                <div class="card-body">
-                    @if($leaderboard->count() > 0)
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th width="80">Rank</th>
-                                        <th>Student Name</th>
-                                        <th class="text-center">Questions Attempted</th>
-                                        <th class="text-center">Correct</th>
-                                        <th class="text-center">Failed</th>
-                                        <th width="200">Accuracy</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($leaderboard as $index => $student)
-                                        <tr style="cursor: pointer;" onclick="window.location='{{ route('admin.student.quiz.details', [$quiz->id, $student->id]) }}'">
-                                            <td>
-                                                <strong class="fs-5">{{ $index + 1 }}</strong>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="avatar-circle bg-primary text-white me-2">
-                                                        {{ strtoupper(substr($student->name, 0, 1)) }}
-                                                    </div>
-                                                    <strong>{{ $student->name }}</strong>
-                                                </div>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-primary fs-6">{{ $student->total_attempts }}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-success fs-6">{{ $student->correct_answers }}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-danger fs-6">{{ $student->failed_answers }}</span>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="progress flex-grow-1" style="height: 25px;">
-                                                        <div class="progress-bar bg-{{ $student->accuracy >= 80 ? 'success' : ($student->accuracy >= 60 ? 'warning' : 'danger') }}" 
-                                                             style="width: {{ $student->accuracy }}%">
-                                                            <strong>{{ number_format($student->accuracy, 1) }}%</strong>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="px-4 py-3" style="width: 80px;">Position</th>
+                                    <th class="px-4 py-3">Student Name</th>
+                                    @foreach($subjects as $subject)
+                                        <th class="px-4 py-3 text-center">{{ $subject->name }}</th>
                                     @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <div class="text-center py-5">
-                            <i class="fas fa-users-slash text-muted" style="font-size: 4rem;"></i>
-                            <h4 class="text-muted mt-3">No Attempts Yet</h4>
-                            <p class="text-muted">Students haven't started this quiz yet</p>
-                        </div>
-                    @endif
+                                    <th class="px-4 py-3 text-center">Total</th>
+                                    <th class="px-4 py-3 text-center">Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($rankings as $ranking)
+                                    <tr style="cursor: pointer;" onclick="window.location='{{ route('admin.student.quiz.details', [$quiz->id, $ranking['user_id']]) }}'">
+                                        <td class="px-4 py-3">
+                                            <span class="badge bg-primary fw-bold">
+                                                {{ $ranking['position'] }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 fw-semibold">{{ $ranking['user_name'] }}</td>
+                                        @foreach($subjects as $subject)
+                                            <td class="px-4 py-3 text-center">
+                                                @if(isset($ranking['subjects'][$subject->id]))
+                                                    <span class="badge bg-info text-dark">
+                                                        {{ $ranking['subjects'][$subject->id]['correct'] }}/{{ $ranking['subjects'][$subject->id]['total'] }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                        @endforeach
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="badge bg-primary fw-bold">
+                                                {{ $ranking['total_correct'] }}/{{ $ranking['total_attempted'] }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span class="badge fw-bold" style="background-color: #ffcccc; color: #000;">
+                                                {{ $ranking['percentage'] }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+            @else
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-users-slash text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="text-muted mt-3">No Attempts Yet</h4>
+                        <p class="text-muted">Students haven't started this quiz yet</p>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 
