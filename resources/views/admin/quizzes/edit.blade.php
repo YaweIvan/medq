@@ -114,16 +114,52 @@
                     @foreach($subjects as $subjectName => $questions)
                         @php
                             $subjectId = $questions->first()->subject_id;
+                            $currentTime = $questions->first()->time_per_question ?? 60;
                         @endphp
-                        <div class="subject-info mb-3 p-3 border rounded d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="fw-bold mb-1">{{ $subjectName }}</h6>
-                                <p class="mb-0 text-muted">{{ $questions->count() }} questions</p>
+                        <div class="subject-info mb-3 p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1">{{ $subjectName }}</h6>
+                                    <p class="mb-0 text-muted">{{ $questions->count() }} questions • {{ $currentTime }} seconds per question</p>
+                                </div>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            data-bs-toggle="modal" data-bs-target="#editTimeModal{{ $subjectId }}">
+                                        <i class="fas fa-clock me-1"></i>Edit Time
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                            onclick="deleteSubject({{ $quiz->id }}, {{ $subjectId }}, '{{ addslashes($subjectName) }}')">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </button>
+                                </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                    onclick="deleteSubject({{ $quiz->id }}, {{ $subjectId }}, '{{ addslashes($subjectName) }}')">
-                                <i class="fas fa-trash me-1"></i>Delete
-                            </button>
+                        </div>
+                        
+                        <!-- Edit Time Modal -->
+                        <div class="modal fade" id="editTimeModal{{ $subjectId }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">
+                                            <i class="fas fa-clock me-2"></i>Edit Time for {{ $subjectName }}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <label class="form-label">Time per Question (seconds)</label>
+                                        <input type="number" class="form-control" id="timeInput{{ $subjectId }}" 
+                                               value="{{ $currentTime }}" min="10" max="600">
+                                        <small class="text-muted">Set the time limit for each question (10-600 seconds)</small>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-primary" 
+                                                onclick="updateSubjectTime({{ $quiz->id }}, {{ $subjectId }}, '{{ $subjectName }}')">
+                                            <i class="fas fa-save me-2"></i>Save Changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     @endforeach
                 </div>
@@ -135,6 +171,10 @@
                             <div class="mb-3">
                                 <label class="form-label">Subject Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Time per Question (seconds) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control time-per-question" placeholder="60" value="60" min="10" max="600">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Questions File <span class="text-danger">*</span></label>
@@ -465,6 +505,10 @@
                 <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy">
             </div>
             <div class="mb-3">
+                <label class="form-label">Time per Question (seconds) <span class="text-danger">*</span></label>
+                <input type="number" class="form-control time-per-question" placeholder="60" value="60" min="10" max="600">
+            </div>
+            <div class="mb-3">
                 <label class="form-label">Questions File <span class="text-danger">*</span></label>
                 <input type="file" class="form-control subject-file" accept=".xlsx,.xls,.csv">
                 <small class="text-muted">Drag & drop .xlsx or .csv file or click to browse</small>
@@ -482,10 +526,11 @@
         
         for (let item of subjectItems) {
             const name = item.querySelector('.subject-name').value.trim();
+            const timePerQuestion = item.querySelector('.time-per-question').value || 60;
             const file = item.querySelector('.subject-file').files[0];
             
             if (name && file) {
-                subjects.push({ name, file });
+                subjects.push({ name, timePerQuestion, file });
             }
         }
         
@@ -499,6 +544,7 @@
         
         subjects.forEach((subject, index) => {
             formData.append(`subjects[${index}][name]`, subject.name);
+            formData.append(`subjects[${index}][time_per_question]`, subject.timePerQuestion);
             formData.append(`subjects[${index}][file]`, subject.file);
         });
         
@@ -522,6 +568,45 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error uploading subjects. Please try again.');
+        }
+    }
+
+    async function updateSubjectTime(quizId, subjectId, subjectName) {
+        const newTime = document.getElementById(`timeInput${subjectId}`).value;
+        
+        if (newTime < 10 || newTime > 600) {
+            alert('Time must be between 10 and 600 seconds');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/admin/quizzes/${quizId}/subjects/${subjectId}/update-time`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('[name="_token"]').value,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    time_per_question: newTime
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Hide modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById(`editTimeModal${subjectId}`));
+                if (modal) modal.hide();
+                
+                alert(`Time updated successfully for "${subjectName}"!\n${data.updated_count} question(s) updated.`);
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error updating time. Please try again.');
         }
     }
 

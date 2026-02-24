@@ -148,8 +148,10 @@ class AdminController extends Controller
                 
                 $subject = Subject::firstOrCreate(['name' => $subjectName]);
                 
+                $timePerQuestion = isset($subjectData['time_per_question']) ? (int)$subjectData['time_per_question'] : 60;
+                
                 if (isset($subjectData['file'])) {
-                    $questionsCreated = $this->processExcelFile($subjectData['file'], $quiz->id, $subject->id);
+                    $questionsCreated = $this->processExcelFile($subjectData['file'], $quiz->id, $subject->id, $timePerQuestion);
                     $totalQuestions += $questionsCreated;
                 }
             }
@@ -172,16 +174,16 @@ class AdminController extends Controller
         }
     }
 
-    private function processExcelFile($file, $quizId, $subjectId)
+    private function processExcelFile($file, $quizId, $subjectId, $timePerQuestion = 60)
     {
         $extension = strtolower($file->getClientOriginalExtension());
         $questionsCreated = 0;
         
         try {
             if (in_array($extension, ['xlsx', 'xls'])) {
-                $questionsCreated = $this->processExcelFileContent($file, $quizId, $subjectId);
+                $questionsCreated = $this->processExcelFileContent($file, $quizId, $subjectId, $timePerQuestion);
             } else {
-                $questionsCreated = $this->processCsvFile($file, $quizId, $subjectId);
+                $questionsCreated = $this->processCsvFile($file, $quizId, $subjectId, $timePerQuestion);
             }
         } catch (\Exception $e) {
             Log::error('File processing error: ' . $e->getMessage());
@@ -190,7 +192,7 @@ class AdminController extends Controller
         return $questionsCreated;
     }
     
-    private function processCsvFile($file, $quizId, $subjectId)
+    private function processCsvFile($file, $quizId, $subjectId, $timePerQuestion = 60)
     {
         $questionsCreated = 0;
         $filePath = $file->getRealPath();
@@ -298,6 +300,7 @@ class AdminController extends Controller
                                 'option_c' => $optionC,
                                 'option_d' => $optionD,
                                 'correct_answer' => $correctAnswer,
+                                'time_per_question' => $timePerQuestion,
                             ];
                             
                             if (!empty($optionE)) {
@@ -415,7 +418,7 @@ class AdminController extends Controller
         return null;
     }
     
-    private function processExcelFileContent($file, $quizId, $subjectId)
+    private function processExcelFileContent($file, $quizId, $subjectId, $timePerQuestion = 60)
     {
         $questionsCreated = 0;
         $questionsSkipped = 0;
@@ -504,6 +507,7 @@ class AdminController extends Controller
                             'option_c' => $optionC,
                             'option_d' => $optionD,
                             'correct_answer' => $correctAnswer,
+                            'time_per_question' => $timePerQuestion,
                         ];
                         
                         if (!empty($optionE)) {
@@ -938,8 +942,10 @@ class AdminController extends Controller
                 $subjectName = trim($subjectData['name']);
                 $subject = Subject::firstOrCreate(['name' => $subjectName]);
                 
+                $timePerQuestion = isset($subjectData['time_per_question']) ? (int)$subjectData['time_per_question'] : 60;
+                
                 if (isset($subjectData['file'])) {
-                    $questionsCreated = $this->processExcelFile($subjectData['file'], $quiz->id, $subject->id);
+                    $questionsCreated = $this->processExcelFile($subjectData['file'], $quiz->id, $subject->id, $timePerQuestion);
                     $totalQuestions += $questionsCreated;
                 }
             }
@@ -997,7 +1003,7 @@ class AdminController extends Controller
         
         try {
             $request->validate([
-                'sound_type' => 'required|in:correct,incorrect',
+                'sound_type' => 'required|in:correct,incorrect,timer,warning',
                 'sound_file' => 'required|file|mimes:mp3,wav,ogg|max:2048', // Max 2MB
             ]);
 
@@ -1069,7 +1075,7 @@ class AdminController extends Controller
         
         try {
             $request->validate([
-                'sound_type' => 'required|in:correct,incorrect',
+                'sound_type' => 'required|in:correct,incorrect,timer,warning',
             ]);
 
             $soundType = $request->sound_type;
@@ -1102,6 +1108,38 @@ class AdminController extends Controller
             Log::error('Sound deletion error: ' . $e->getMessage());
             return redirect()->route('admin.sounds')
                 ->with('audio_error', 'Error deleting sound: ' . $e->getMessage());
+        }
+    }
+
+    public function updateSubjectTime(Request $request, $quizId, $subjectId)
+    {
+        \DB::beginTransaction();
+        
+        try {
+            $timePerQuestion = $request->input('time_per_question');
+            
+            if ($timePerQuestion < 10 || $timePerQuestion > 600) {
+                return response()->json(['success' => false, 'message' => 'Time must be between 10 and 600 seconds'], 400);
+            }
+            
+            $updatedCount = Question::where('quiz_id', $quizId)
+                                  ->where('subject_id', $subjectId)
+                                  ->update(['time_per_question' => $timePerQuestion]);
+            
+            \DB::commit();
+            
+            return response()->json([
+                'success' => true, 
+                'message' => "Time updated successfully for all questions in this subject.",
+                'updated_count' => $updatedCount
+            ]);
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json([
+                'success' => false, 
+                'message' => 'Failed to update time: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -61,7 +61,7 @@
     <!-- Question Timer -->
     <div class="question-timer" id="timerContainer" style="display: none;">
         <div class="question-timer-label">Time Left</div>
-        <div class="question-timer-display" id="questionTimer">60</div>
+        <div class="question-timer-display" id="questionTimer">{{ $question->time_per_question ?? 60 }}</div>
     </div>
 
     <div class="main-content">
@@ -281,12 +281,171 @@ function playGeneratedIncorrectSound() {
     oscillator.stop(audioContext.currentTime + 0.3);
 }
 
+// Timer Sound Functions
+let timerAudio = null;
+let isTimerSoundPlaying = false;
+let warningPlayed = false; // Track if 10-second warning has been played
+
+function playWarningSound() {
+    if (warningPlayed) return; // Only play once
+    warningPlayed = true;
+    
+    // Try to play uploaded warning sound file
+    const warningAudio = new Audio();
+    
+    // Try different formats
+    const formats = [
+        { src: '{{ asset("sounds/warning.mp3") }}', type: 'audio/mpeg' },
+        { src: '{{ asset("sounds/warning.wav") }}', type: 'audio/wav' },
+        { src: '{{ asset("sounds/warning.ogg") }}', type: 'audio/ogg' }
+    ];
+    
+    let soundLoaded = false;
+    
+    for (let format of formats) {
+        if (warningAudio.canPlayType(format.type)) {
+            warningAudio.src = format.src;
+            warningAudio.volume = 0.5; // Set to 50% volume for alert
+            
+            warningAudio.play().then(() => {
+                soundLoaded = true;
+            }).catch(() => {
+                // File doesn't exist, will use generated sound
+                if (!soundLoaded) playGeneratedWarningSound();
+            });
+            break;
+        }
+    }
+    
+    // If no format supported or error, use generated sound
+    if (!soundLoaded) {
+        setTimeout(() => {
+            if (warningPlayed && !soundLoaded) playGeneratedWarningSound();
+        }, 100);
+    }
+}
+
+function playGeneratedWarningSound() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Play three quick beeps as warning
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(1200, audioContext.currentTime); // High pitch for urgency
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.15);
+        }, i * 200); // 200ms between beeps
+    }
+}
+
+function playTimerSound() {
+    if (isTimerSoundPlaying) return; // Already playing
+    
+    // Try to play uploaded timer sound file
+    timerAudio = new Audio();
+    
+    // Try different formats
+    const formats = [
+        { src: '{{ asset("sounds/timer.mp3") }}', type: 'audio/mpeg' },
+        { src: '{{ asset("sounds/timer.wav") }}', type: 'audio/wav' },
+        { src: '{{ asset("sounds/timer.ogg") }}', type: 'audio/ogg' }
+    ];
+    
+    let soundLoaded = false;
+    
+    for (let format of formats) {
+        if (timerAudio.canPlayType(format.type)) {
+            timerAudio.src = format.src;
+            timerAudio.loop = true; // Loop the timer sound
+            timerAudio.volume = 0.3; // Set to 30% volume for subtlety
+            
+            timerAudio.play().then(() => {
+                soundLoaded = true;
+                isTimerSoundPlaying = true;
+            }).catch(() => {
+                // File doesn't exist, will use generated sound
+                if (!soundLoaded) playGeneratedTimerSound();
+            });
+            break;
+        }
+    }
+    
+    // If no format supported or error, use generated sound
+    if (!soundLoaded) {
+        setTimeout(() => {
+            if (!isTimerSoundPlaying) playGeneratedTimerSound();
+        }, 100);
+    }
+}
+
+function playGeneratedTimerSound() {
+    if (isTimerSoundPlaying) return;
+    
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let tickInterval;
+    
+    function playTick() {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Alternating tick-tock frequencies
+        const now = Date.now();
+        const isTick = Math.floor(now / 1000) % 2 === 0;
+        oscillator.frequency.setValueAtTime(isTick ? 800 : 600, audioContext.currentTime);
+        
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Very subtle
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+    }
+    
+    // Play tick every second
+    isTimerSoundPlaying = true;
+    playTick(); // Play immediately
+    tickInterval = setInterval(playTick, 1000);
+    
+    // Store interval so we can stop it later
+    window.timerTickInterval = tickInterval;
+}
+
+function stopTimerSound() {
+    isTimerSoundPlaying = false;
+    
+    // Stop uploaded audio if playing
+    if (timerAudio) {
+        timerAudio.pause();
+        timerAudio.currentTime = 0;
+        timerAudio = null;
+    }
+    
+    // Stop generated tick interval
+    if (window.timerTickInterval) {
+        clearInterval(window.timerTickInterval);
+        window.timerTickInterval = null;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const options = document.querySelectorAll('.option');
     const submitBtn = document.getElementById('submitAnswer');
     const questionId = {{ $question->id }};
     const timerStartKey = `quiz_timer_start_${questionId}`;
-    const TOTAL_TIME = 60; // 60 seconds per question (1 minute)
+    const TOTAL_TIME = {{ $question->time_per_question ?? 60 }}; // Dynamic time from question
     
     let selectedAnswer = null;
     let questionTimerInterval;
@@ -307,6 +466,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Calculate remaining time and ensure it never goes negative
         timeRemaining = Math.max(0, TOTAL_TIME - elapsedSeconds);
+        
+        // If resuming with less than 10 seconds, mark warning as already played
+        if (timeRemaining < 10) {
+            warningPlayed = true;
+        }
         
         if (timeRemaining > 0.5) { // Allow half-second buffer to prevent premature expiry
             // Resume timer automatically
@@ -333,6 +497,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function removed - no longer needed
 
     function startCountdown() {
+        // Start playing timer sound
+        playTimerSound();
+        
         updateTimerDisplay();
         
         questionTimerInterval = setInterval(() => {
@@ -362,6 +529,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const displayTime = Math.max(0, Math.ceil(timeRemaining));
         timerElement.textContent = displayTime;
         
+        // Play warning sound when hitting exactly 10 seconds
+        if (displayTime === 10 && !warningPlayed) {
+            playWarningSound();
+        }
+        
         // Turn red when 10 seconds or below
         if (displayTime <= 10) {
             timerElement.classList.add('danger');
@@ -376,6 +548,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function autoSubmit() {
         clearInterval(questionTimerInterval);
         
+        // Stop timer sound
+        stopTimerSound();
+        
         if (hasSubmitted) return;
         
         hasSubmitted = true;
@@ -384,8 +559,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Disable all options
         options.forEach(opt => opt.style.pointerEvents = 'none');
         submitBtn.style.pointerEvents = 'none';
+        submitBtn.disabled = true;
         
-        // Submit with empty answer - marks question as FAILED and LOCKED
+        // Submit with selected answer (if any) - time expired
         fetch('{{ route("quizzer.submit.answer") }}', {
             method: 'POST',
             headers: {
@@ -394,19 +570,50 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({
                 question_id: questionId,
-                selected_answer: '', // Empty = time expired, marked as FAILED (is_correct = false)
+                selected_answer: selectedAnswer || '', // Submit selected answer or empty if none selected
                 time_taken: TOTAL_TIME
             })
         })
         .then(response => response.json())
-        .then(() => {
-            // Play incorrect sound for time expiry
-            playIncorrectSound();
+        .then(data => {
+            // Play sound based on answer correctness
+            if (data.correct) {
+                playCorrectSound();
+            } else {
+                playIncorrectSound();
+            }
             
-            // Wait 1 second before redirecting to grid
+            // Show visual feedback on options
+            if (selectedAnswer) {
+                const selectedOption = document.querySelector('.option.selected');
+                if (data.correct) {
+                    selectedOption.style.borderColor = '#10b981';
+                    selectedOption.style.backgroundColor = '#dcfce7';
+                } else {
+                    selectedOption.style.borderColor = '#ef4444';
+                    selectedOption.style.backgroundColor = '#fee2e2';
+                    
+                    // Show correct answer
+                    const correctOption = document.querySelector(`[data-answer="${data.correct_answer}"]`);
+                    if (correctOption) {
+                        correctOption.style.borderColor = '#10b981';
+                        correctOption.style.backgroundColor = '#dcfce7';
+                    }
+                }
+            } else {
+                // No answer selected - show correct answer only
+                const correctOption = document.querySelector(`[data-answer="${data.correct_answer}"]`);
+                if (correctOption) {
+                    correctOption.style.borderColor = '#10b981';
+                    correctOption.style.backgroundColor = '#dcfce7';
+                }
+            }
+            
+            // Redirect back to grid after showing feedback
             setTimeout(() => {
                 window.location.href = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
-            }, 1000);
+            }, 1500);
+
         })
         .catch(() => {
             // Even on error, redirect to grid after 1 second
@@ -438,6 +645,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Stop timer immediately
         clearInterval(questionTimerInterval);
+        
+        // Stop timer sound
+        stopTimerSound();
+        
         clearTimerStorage();
         
         submitBtn.disabled = true;

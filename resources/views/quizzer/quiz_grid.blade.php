@@ -160,7 +160,7 @@
                 <div class="start-quiz-card">
                     <button class="btn btn-sm btn-close position-absolute top-0 end-0 m-3" onclick="closeTimerMessage()"></button>
                     <h3><i class="fas fa-clock text-primary me-2"></i>Timer Starting!</h3>
-                    <p>The timer will begin counting down automatically.<br>You will have 1 minute to answer each question.</p>
+                    <p>The timer will begin counting down automatically.<br>You will have {{ $questions->first()->time_per_question ?? 60 }} seconds to answer each question.</p>
                 </div>
             </div>
             @endif

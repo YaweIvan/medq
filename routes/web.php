@@ -67,6 +67,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         Route::post('/{id}/update-users', [AdminController::class, 'updateQuizUsers'])->name('update-users');
         Route::post('/{id}/reset', [AdminController::class, 'resetQuiz'])->name('reset');
         Route::post('/{id}/add-subjects', [AdminController::class, 'addSubjects'])->name('add-subjects');
+        Route::post('/{quizId}/subjects/{subjectId}/update-time', [AdminController::class, 'updateSubjectTime'])->name('update-subject-time');
         Route::delete('/{quizId}/subjects/{subjectId}', [AdminController::class, 'deleteQuizSubject'])->name('delete-subject');
         Route::delete('/{id}', [AdminController::class, 'deleteQuiz'])->name('delete');
         Route::post('/{id}/toggle', [AdminController::class, 'toggleQuizStatus'])->name('toggle');
