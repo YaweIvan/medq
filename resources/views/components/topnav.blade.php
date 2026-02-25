@@ -9,6 +9,9 @@
         </div>
     </div>
     <div class="nav-actions">
+        <span class="me-3 d-none d-md-inline text-white-50">
+            <i class="fas fa-calendar-day me-1"></i>{{ date('D, M j, Y') }}
+        </span>
         @if(auth()->user()->isAdmin())
             @php
                 $pendingCount = \App\Models\User::where('is_approved', false)->count();

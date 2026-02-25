@@ -146,7 +146,15 @@ class AdminController extends Controller
                     return response()->json(['success' => false, 'message' => "Invalid subject name: '{$subjectName}'. This appears to be a column header from your Excel file. Please enter a proper subject name (e.g., Anatomy, Cardiology)."], 400);
                 }
                 
-                $subject = Subject::firstOrCreate(['name' => $subjectName]);
+                $maxQuestions = isset($subjectData['max_questions']) ? (int)$subjectData['max_questions'] : 5;
+                
+                $subject = Subject::firstOrCreate(
+                    ['name' => $subjectName],
+                    ['max_questions' => $maxQuestions]
+                );
+                
+                // Update max_questions for existing subject
+                $subject->update(['max_questions' => $maxQuestions]);
                 
                 $timePerQuestion = isset($subjectData['time_per_question']) ? (int)$subjectData['time_per_question'] : 60;
                 
@@ -584,6 +592,12 @@ class AdminController extends Controller
             $query->where('quiz_id', $quizId);
         })->get();
         
+        // Calculate total expected questions based on max_questions per subject
+        $totalExpected = 0;
+        foreach ($subjects as $subject) {
+            $totalExpected += $subject->max_questions ?? 5;
+        }
+        
         // Get all users who attempted this quiz
         $userIds = QuizAttempt::where('quiz_id', $quizId)
             ->distinct()
@@ -595,12 +609,21 @@ class AdminController extends Controller
             $user = User::find($userId);
             if (!$user) continue;
             
+            // Get the last attempt date for this user in this quiz
+            $lastAttempt = QuizAttempt::where('quiz_id', $quizId)
+                ->where('user_id', $userId)
+                ->latest('created_at')
+                ->first();
+            
             $userStats = [
                 'user_id' => $userId,
                 'user_name' => $user->name,
                 'subjects' => [],
                 'total_correct' => 0,
                 'total_attempted' => 0,
+                'total_expected' => $totalExpected,
+                'last_attempt_date' => $lastAttempt ? $lastAttempt->created_at->format('M j, Y') : 'N/A',
+                'last_attempt_time' => $lastAttempt ? $lastAttempt->created_at->format('g:i A') : '',
             ];
             
             // Calculate stats for each subject
@@ -614,19 +637,21 @@ class AdminController extends Controller
                 
                 $correct = $subjectAttempts->where('is_correct', true)->count();
                 $total = $subjectAttempts->count();
+                $expected = $subject->max_questions ?? 5;
                 
                 $userStats['subjects'][$subject->id] = [
                     'correct' => $correct,
                     'total' => $total,
+                    'expected' => $expected,
                 ];
                 
                 $userStats['total_correct'] += $correct;
                 $userStats['total_attempted'] += $total;
             }
             
-            // Calculate percentage
-            $userStats['percentage'] = $userStats['total_attempted'] > 0 
-                ? round(($userStats['total_correct'] / $userStats['total_attempted']) * 100, 2) 
+            // Calculate percentage based on total expected, not total attempted
+            $userStats['percentage'] = $totalExpected > 0 
+                ? round(($userStats['total_correct'] / $totalExpected) * 100, 2) 
                 : 0;
             
             $rankings[] = $userStats;
@@ -701,12 +726,12 @@ class AdminController extends Controller
             
             foreach ($subjects as $subject) {
                 $value = isset($ranking['subjects'][$subject->id]) 
-                    ? $ranking['subjects'][$subject->id]['correct'] . '/' . $ranking['subjects'][$subject->id]['total']
+                    ? $ranking['subjects'][$subject->id]['correct'] . '/' . $ranking['subjects'][$subject->id]['expected']
                     : '-';
                 $sheet->setCellValueByColumnAndRow($col++, $row, $value);
             }
             
-            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['total_correct'] . '/' . $ranking['total_attempted']);
+            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['total_correct'] . '/' . $ranking['total_expected']);
             $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['percentage'] . '%');
             
             $row++;
@@ -741,8 +766,21 @@ class AdminController extends Controller
             ->groupBy('user_id')
             ->with('user')
             ->get()
-            ->map(function($item) {
+            ->map(function($item) use ($quizId, $subjectId) {
                 $item->percentage = $item->total > 0 ? round(($item->correct / $item->total) * 100, 2) : 0;
+                
+                // Get the actual last attempt with proper Carbon instance
+                $lastAttempt = QuizAttempt::where('quiz_id', $quizId)
+                    ->where('user_id', $item->user_id)
+                    ->whereHas('question', function($query) use ($subjectId) {
+                        $query->where('subject_id', $subjectId);
+                    })
+                    ->latest('created_at')
+                    ->first();
+                
+                $item->last_attempt_date = $lastAttempt && $lastAttempt->created_at ? $lastAttempt->created_at->format('M j, Y') : 'N/A';
+                $item->last_attempt_time = $lastAttempt && $lastAttempt->created_at ? $lastAttempt->created_at->format('g:i A') : '';
+                
                 return $item;
             })
             ->sortByDesc('percentage')
@@ -940,7 +978,15 @@ class AdminController extends Controller
             
             foreach ($request->subjects as $index => $subjectData) {
                 $subjectName = trim($subjectData['name']);
-                $subject = Subject::firstOrCreate(['name' => $subjectName]);
+                $maxQuestions = isset($subjectData['max_questions']) ? (int)$subjectData['max_questions'] : 5;
+                
+                $subject = Subject::firstOrCreate(
+                    ['name' => $subjectName],
+                    ['max_questions' => $maxQuestions]
+                );
+                
+                // Update max_questions for existing subject
+                $subject->update(['max_questions' => $maxQuestions]);
                 
                 $timePerQuestion = isset($subjectData['time_per_question']) ? (int)$subjectData['time_per_question'] : 60;
                 
@@ -1139,6 +1185,47 @@ class AdminController extends Controller
             return response()->json([
                 'success' => false, 
                 'message' => 'Failed to update time: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateSubjectSettings(Request $request, $quizId, $subjectId)
+    {
+        \DB::beginTransaction();
+        
+        try {
+            $timePerQuestion = $request->input('time_per_question');
+            $maxQuestions = $request->input('max_questions', 5);
+            
+            if ($timePerQuestion < 10 || $timePerQuestion > 600) {
+                return response()->json(['success' => false, 'message' => 'Time must be between 10 and 600 seconds'], 400);
+            }
+            
+            // Update questions time per question
+            $updatedCount = Question::where('quiz_id', $quizId)
+                                  ->where('subject_id', $subjectId)
+                                  ->update(['time_per_question' => $timePerQuestion]);
+            
+            // Update subject max_questions
+            $subject = Subject::find($subjectId);
+            if ($subject) {
+                $subject->max_questions = $maxQuestions;
+                $subject->save();
+            }
+            
+            \DB::commit();
+            
+            return response()->json([
+                'success' => true, 
+                'message' => "Settings updated successfully for all questions in this subject.",
+                'updated_count' => $updatedCount
+            ]);
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json([
+                'success' => false, 
+                'message' => 'Failed to update settings: ' . $e->getMessage()
             ], 500);
         }
     }

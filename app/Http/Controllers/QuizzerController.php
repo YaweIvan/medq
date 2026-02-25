@@ -34,7 +34,8 @@ class QuizzerController extends Controller
 
         $subjects = Subject::whereHas('questions', function($query) use ($quizId) {
             $query->where('quiz_id', $quizId);
-        })->withCount(['questions as available_questions' => function($query) use ($quizId, $user) {
+        })->select('subjects.*')
+        ->withCount(['questions as available_questions' => function($query) use ($quizId, $user) {
             $query->where('quiz_id', $quizId)
                   ->where('is_used', false)
                   ->whereNotIn('id', function($subQuery) use ($user) {
@@ -92,15 +93,18 @@ class QuizzerController extends Controller
         $quiz = Quiz::findOrFail($quizId);
         $subject = Subject::findOrFail($subjectId);
 
-        // Check attempts for this subject (max 5)
+        // Get max questions for this subject (default to 5 if not set)
+        $maxQuestions = $subject->max_questions ?? 5;
+
+        // Check attempts for this subject
         $attemptCount = QuizAttempt::where('user_id', $user->id)
             ->where('quiz_id', $quizId)
             ->whereHas('question', function($query) use ($subjectId) {
                 $query->where('subject_id', $subjectId);
             })->count();
 
-        if ($attemptCount >= 5) {
-            return redirect()->back()->with('error', 'Maximum 5 questions per subject reached.');
+        if ($attemptCount >= $maxQuestions) {
+            return redirect()->back()->with('error', "Maximum {$maxQuestions} questions per subject reached.");
         }
 
         // Get available questions
@@ -113,7 +117,7 @@ class QuizzerController extends Controller
                       ->where('user_id', $user->id);
             })
             ->inRandomOrder()
-            ->take(5 - $attemptCount)
+            ->take($maxQuestions - $attemptCount)
             ->get();
 
         return view('quizzer.questions', compact('quiz', 'subject', 'questions'));

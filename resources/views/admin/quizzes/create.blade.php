@@ -97,17 +97,22 @@
                     <div id="subjectsContainer">
                         <div class="subject-block" data-index="0">
                             <div class="row">
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label">Subject Name <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy" required>
                                     <div class="invalid-feedback"></div>
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Time per Question (seconds) <span class="text-danger">*</span></label>
+                                    <label class="form-label">Time per Question (sec) <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control time-per-question" placeholder="60" value="60" min="10" max="600" required>
                                     <div class="invalid-feedback"></div>
                                 </div>
-                                <div class="col-md-7">
+                                <div class="col-md-2">
+                                    <label class="form-label">Max Questions <span class="text-muted">(default: 5)</span></label>
+                                    <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
+                                    <small class="text-muted">Leave empty for all</small>
+                                </div>
+                                <div class="col-md-6">
                                     <label class="form-label">Questions File <span class="text-danger">*</span></label>
                                     <div class="file-upload-area" onclick="triggerFileInput(this)">
                                         <input type="file" class="file-input" accept=".xlsx,.xls,.csv" style="display: none;" required>
@@ -435,17 +440,22 @@
                 <i class="fas fa-trash"></i>
             </button>
             <div class="row">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Subject Name <span class="text-danger">*</span></label>
                     <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy" required>
                     <div class="invalid-feedback"></div>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Time per Question (seconds) <span class="text-danger">*</span></label>
+                    <label class="form-label">Time per Question (sec) <span class="text-danger">*</span></label>
                     <input type="number" class="form-control time-per-question" placeholder="60" value="60" min="10" max="600" required>
                     <div class="invalid-feedback"></div>
                 </div>
-                <div class="col-md-7">
+                <div class="col-md-2">
+                    <label class="form-label">Max Questions <span class="text-muted">(default: 5)</span></label>
+                    <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
+                    <small class="text-muted">Leave empty for all</small>
+                </div>
+                <div class="col-md-6">
                     <label class="form-label">Questions File <span class="text-danger">*</span></label>
                     <div class="file-upload-area" onclick="triggerFileInput(this)">
                         <input type="file" class="file-input" accept=".xlsx,.xls,.csv" style="display: none;" required>
@@ -528,10 +538,12 @@
         subjects.forEach((subject, index) => {
             const name = subject.querySelector('.subject-name').value;
             const timePerQuestion = subject.querySelector('.time-per-question').value;
+            const maxQuestions = subject.querySelector('.max-questions').value || 5;
             const file = subject.querySelector('.file-input').files[0];
             
             formData.append(`subjects[${index}][name]`, name);
             formData.append(`subjects[${index}][time_per_question]`, timePerQuestion);
+            formData.append(`subjects[${index}][max_questions]`, maxQuestions);
             formData.append(`subjects[${index}][file]`, file);
         });
         

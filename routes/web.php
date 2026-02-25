@@ -62,13 +62,18 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         Route::get('/create', [AdminController::class, 'createQuiz'])->name('create');
         Route::post('/', [AdminController::class, 'storeQuiz'])->name('store');
         Route::get('/select-edit', [AdminController::class, 'selectEditQuiz'])->name('select-edit');
+        
+        // Subject-specific routes (must come before {id} routes)
+        Route::post('/{quizId}/subjects/{subjectId}/update-time', [AdminController::class, 'updateSubjectTime'])->name('update-subject-time');
+        Route::post('/{quizId}/subjects/{subjectId}/update-settings', [AdminController::class, 'updateSubjectSettings'])->name('update-subject-settings');
+        Route::delete('/{quizId}/subjects/{subjectId}', [AdminController::class, 'deleteQuizSubject'])->name('delete-subject');
+        Route::post('/{id}/add-subjects', [AdminController::class, 'addSubjects'])->name('add-subjects');
+        
+        // General quiz routes
         Route::get('/{id}/edit', [AdminController::class, 'editQuiz'])->name('edit');
         Route::put('/{id}', [AdminController::class, 'updateQuiz'])->name('update');
         Route::post('/{id}/update-users', [AdminController::class, 'updateQuizUsers'])->name('update-users');
         Route::post('/{id}/reset', [AdminController::class, 'resetQuiz'])->name('reset');
-        Route::post('/{id}/add-subjects', [AdminController::class, 'addSubjects'])->name('add-subjects');
-        Route::post('/{quizId}/subjects/{subjectId}/update-time', [AdminController::class, 'updateSubjectTime'])->name('update-subject-time');
-        Route::delete('/{quizId}/subjects/{subjectId}', [AdminController::class, 'deleteQuizSubject'])->name('delete-subject');
         Route::delete('/{id}', [AdminController::class, 'deleteQuiz'])->name('delete');
         Route::post('/{id}/toggle', [AdminController::class, 'toggleQuizStatus'])->name('toggle');
     });

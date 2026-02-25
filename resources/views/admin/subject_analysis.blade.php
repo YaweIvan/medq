@@ -34,6 +34,7 @@
                                     <th>Name of Student</th>
                                     <th class="text-center">Questions Passed/Total Attempted</th>
                                     <th class="text-center">Percentage</th>
+                                    <th class="text-center">Last Attempt</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -43,6 +44,14 @@
                                         <td><strong>{{ $ranking->user->name }}</strong></td>
                                         <td class="text-center">{{ $ranking->correct }}/{{ $ranking->total }}</td>
                                         <td class="text-center"><strong>{{ $ranking->percentage }}%</strong></td>
+                                        <td class="text-center">
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar me-1"></i>{{ $ranking->last_attempt_date }}
+                                                @if($ranking->last_attempt_time)
+                                                    <br><i class="fas fa-clock me-1"></i>{{ $ranking->last_attempt_time }}
+                                                @endif
+                                            </small>
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>

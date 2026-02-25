@@ -73,7 +73,6 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     z-index: 999;
-    transition: width 0.3s ease;
 }
 
 .sidebar.collapsed {
@@ -92,6 +91,31 @@ body {
     display: none;
 }
 
+/* Keep the collapse button visible when sidebar is collapsed */
+.sidebar.collapsed .sidebar-collapse-btn {
+    display: flex !important;
+    width: 100%;
+    justify-content: center;
+    padding: 1rem 0;
+}
+
+.sidebar.collapsed .sidebar-collapse-btn .sidebar-toggle-icon {
+    opacity: 1 !important;
+    width: auto !important;
+    display: block !important;
+}
+
+.sidebar.collapsed .dashboard-link-container {
+    flex-direction: column;
+    padding: 0;
+}
+
+.sidebar.collapsed .dashboard-link {
+    width: 100%;
+    justify-content: center;
+    padding: 1rem 0.5rem;
+}
+
 .sidebar.collapsed .sidebar-title {
     opacity: 0;
     height: 0;
@@ -107,10 +131,15 @@ body {
     padding: 1rem 0.5rem;
 }
 
+/* Exception for dashboard link container - don't center */
+.sidebar.collapsed .dashboard-link-container a {
+    justify-content: center;
+    padding: 1rem 0.5rem;
+}
+
 .sidebar-toggle-icon {
     margin-left: auto !important;
     margin-right: 0 !important;
-    transition: transform 0.3s ease;
     font-size: 0.875rem;
 }
 
@@ -127,7 +156,6 @@ body {
     margin: 0.25rem 1rem;
     border-radius: 12px;
     font-weight: 500;
-    transition: all 0.3s ease;
     position: relative;
 }
 
@@ -139,7 +167,6 @@ body {
 }
 
 .sidebar-text {
-    transition: opacity 0.3s ease;
     white-space: nowrap;
 }
 
@@ -184,7 +211,6 @@ body {
     margin-top: var(--topnav-height);
     padding: 2rem;
     min-height: calc(100vh - var(--topnav-height));
-    transition: margin-left 0.3s ease;
 }
 
 .main-content.sidebar-collapsed {

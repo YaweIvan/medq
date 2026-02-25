@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Quiz;
 use App\Models\User;
 use App\Models\QuizAttempt;
+use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -177,7 +178,18 @@ class StatisticsApiController extends Controller
             $quiz = Quiz::find($quizId);
             if (!$quiz) continue;
 
-            $allUsers = User::where('role', 'quizzer')
+            // Get subjects for this quiz and calculate total expected questions
+            $subjects = Subject::whereHas('questions', function($query) use ($quizId) {
+                $query->where('quiz_id', $quizId);
+            })->get();
+            
+            $totalExpected = 0;
+            foreach ($subjects as $subject) {
+                $totalExpected += $subject->max_questions ?? 5;
+            }
+
+            // Get all users who attempted this quiz with their stats
+            $allUsersData = User::where('role', 'quizzer')
                 ->whereHas('quizzes', function($q) use ($quizId) {
                     $q->where('quizzes.id', $quizId);
                 })
@@ -188,16 +200,31 @@ class StatisticsApiController extends Controller
                     $q->where('quiz_id', $quizId)->where('is_correct', true);
                 }])
                 ->get()
-                ->map(function($user) {
+                ->filter(function($user) {
+                    // Only include users who have actually attempted at least one question
+                    return $user->total_attempts > 0;
+                })
+                ->map(function($user) use ($totalExpected) {
+                    // Calculate accuracy based on expected total, not attempted
+                    $accuracy = $totalExpected > 0 ? round(($user->correct_count / $totalExpected) * 100, 2) : 0;
                     return [
                         'id' => $user->id,
                         'correct' => $user->correct_count,
-                        'total' => $user->total_attempts,
-                        'accuracy' => $user->total_attempts > 0 ? round(($user->correct_count / $user->total_attempts) * 100, 2) : 0
+                        'total' => $totalExpected,
+                        'accuracy' => $accuracy
                     ];
                 })
-                ->sortByDesc('correct')
-                ->values();
+                ->toArray();
+            
+            // Sort by correct count first (descending), then by accuracy (descending)
+            usort($allUsersData, function($a, $b) {
+                if ($a['correct'] == $b['correct']) {
+                    return $b['accuracy'] <=> $a['accuracy'];
+                }
+                return $b['correct'] <=> $a['correct'];
+            });
+            
+            $allUsers = array_values($allUsersData);
 
             $rank = null;
             $userStats = null;
@@ -210,14 +237,22 @@ class StatisticsApiController extends Controller
                 }
             }
 
-            if ($rank && $userStats['total'] > 0) {
+            if ($rank) {
+                // Get the last attempt date for this user and quiz
+                $lastAttempt = QuizAttempt::where('quiz_id', $quizId)
+                    ->where('user_id', $userId)
+                    ->latest('created_at')
+                    ->first();
+                
                 $rankings[] = [
                     'quiz' => $quiz->title,
                     'quiz_id' => $quizId,
                     'rank' => $rank,
                     'correct' => $userStats['correct'],
                     'total' => $userStats['total'],
-                    'accuracy' => $userStats['accuracy']
+                    'accuracy' => $userStats['accuracy'],
+                    'last_attempt_date' => $lastAttempt ? $lastAttempt->created_at->format('M j, Y') : 'N/A',
+                    'last_attempt_time' => $lastAttempt ? $lastAttempt->created_at->format('g:i A') : '',
                 ];
             }
         }

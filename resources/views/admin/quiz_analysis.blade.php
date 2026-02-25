@@ -74,7 +74,7 @@
                                                 <td class="px-4 py-3 text-center">
                                                     @if(isset($ranking['subjects'][$subject->id]))
                                                         <span class="badge bg-info text-dark">
-                                                            {{ $ranking['subjects'][$subject->id]['correct'] }}/{{ $ranking['subjects'][$subject->id]['total'] }}
+                                                            {{ $ranking['subjects'][$subject->id]['correct'] }}/{{ $ranking['subjects'][$subject->id]['expected'] }}
                                                         </span>
                                                     @else
                                                         <span class="text-muted">-</span>
@@ -83,7 +83,7 @@
                                             @endforeach
                                             <td class="px-4 py-3 text-center">
                                                 <span class="badge bg-primary fw-bold">
-                                                    {{ $ranking['total_correct'] }}/{{ $ranking['total_attempted'] }}
+                                                    {{ $ranking['total_correct'] }}/{{ $ranking['total_expected'] }}
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 text-center">

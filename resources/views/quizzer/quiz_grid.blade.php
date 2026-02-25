@@ -7,7 +7,19 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <script>
+        // Apply collapsed state immediately before page renders to prevent flash
+        if (window.innerWidth > 768 && localStorage.getItem('quizzerSidebarCollapsed') === 'true') {
+            document.documentElement.classList.add('sidebar-pre-collapsed');
+        }
+    </script>
     <style>
+        .sidebar-pre-collapsed #quizzerSidebar {
+            width: 70px;
+        }
+        .sidebar-pre-collapsed .main-content {
+            margin-left: 70px;
+        }
         .timer-container {
             position: fixed;
             top: 80px;
@@ -147,7 +159,7 @@
                 <div>
                     <h2 class="fw-bold text-dark mb-1">{{ $quiz->title }}</h2>
                     <p class="text-muted mb-0">
-                        <i class="fas fa-book me-2"></i>{{ $subject->name }} - Select Questions ({{ $attemptedCount }}/5 attempted)
+                        <i class="fas fa-book me-2"></i>{{ $subject->name }} - Select Questions ({{ $attemptedCount }}/{{ $subject->max_questions ?? 5 }} attempted)
                     </p>
                 </div>
                 <a href="{{ route('quizzer.quiz.subjects', $quiz->id) }}" class="btn btn-outline-secondary">
@@ -161,6 +173,7 @@
                     <button class="btn btn-sm btn-close position-absolute top-0 end-0 m-3" onclick="closeTimerMessage()"></button>
                     <h3><i class="fas fa-clock text-primary me-2"></i>Timer Starting!</h3>
                     <p>The timer will begin counting down automatically.<br>You will have {{ $questions->first()->time_per_question ?? 60 }} seconds to answer each question.</p>
+                    <p class="mb-0"><i class="fas fa-info-circle text-info me-2"></i><strong>{{ $subject->max_questions ?? 5 }} questions</strong> maximum per attempt in this subject.</p>
                 </div>
             </div>
             @endif
@@ -172,7 +185,8 @@
                             @php
                                 $isAttempted = $attemptedQuestions->contains($question->id);
                                 $isLocked = $question->is_used;
-                                $canAttempt = !$isAttempted && !$isLocked && $attemptedCount < 5;
+                                $maxQuestions = $subject->max_questions ?? 5;
+                                $canAttempt = !$isAttempted && !$isLocked && $attemptedCount < $maxQuestions;
                             @endphp
                             
                             <div class="question-number 
@@ -212,7 +226,7 @@
     </div>
 
     <script>
-        const MAX_QUESTIONS = 5;
+        const MAX_QUESTIONS = {{ $subject->max_questions ?? 5 }};
         const hasActiveTimer = {{ $hasActiveTimer ? 'true' : 'false' }};
 
         function closeTimerMessage() {
@@ -234,9 +248,9 @@
                 }
             }
             
-            // Check if 5 questions already completed
+            // Check if maximum questions already completed
             if ({{ $attemptedCount }} >= MAX_QUESTIONS) {
-                alert('You have completed all 5 questions for this subject!');
+                alert(`You have completed all ${MAX_QUESTIONS} questions for this subject!`);
                 window.location.href = '{{ route("quizzer.quiz.subjects", $quiz->id) }}';
                 return;
             }
@@ -250,7 +264,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             if ({{ $attemptedCount }} >= MAX_QUESTIONS) {
                 setTimeout(() => {
-                    alert('Congratulations! You completed all 5 questions for this subject!');
+                    alert(`Congratulations! You completed all ${MAX_QUESTIONS} questions for this subject!`);
                     window.location.href = '{{ route("quizzer.quiz.subjects", $quiz->id) }}';
                 }, 500);
             }

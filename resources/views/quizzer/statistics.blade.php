@@ -7,6 +7,20 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <script>
+        // Apply collapsed state immediately before page renders to prevent flash
+        if (window.innerWidth > 768 && localStorage.getItem('quizzerSidebarCollapsed') === 'true') {
+            document.documentElement.classList.add('sidebar-pre-collapsed');
+        }
+    </script>
+    <style>
+        .sidebar-pre-collapsed #quizzerSidebar {
+            width: 70px;
+        }
+        .sidebar-pre-collapsed .main-content {
+            margin-left: 70px;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -82,6 +96,7 @@
                             <thead>
                                 <tr>
                                     <th>Quiz</th>
+                                    <th class="text-center">Last Attempt</th>
                                     <th class="text-center">Rank</th>
                                     <th class="text-center">Correct</th>
                                     <th class="text-center">Total</th>
@@ -92,6 +107,12 @@
                                 ${data.map(quiz => `
                                     <tr style="cursor: pointer;" onclick="window.location.href='/quizzer/quiz/${quiz.quiz_id}/review'">
                                         <td><strong>${quiz.quiz}</strong></td>
+                                        <td class="text-center">
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar me-1"></i>${quiz.last_attempt_date}
+                                                ${quiz.last_attempt_time ? '<br><i class="fas fa-clock me-1"></i>' + quiz.last_attempt_time : ''}
+                                            </small>
+                                        </td>
                                         <td class="text-center"><span class="badge bg-primary">${quiz.rank}</span></td>
                                         <td class="text-center text-success">${quiz.correct}</td>
                                         <td class="text-center">${quiz.total}</td>

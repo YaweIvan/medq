@@ -81,6 +81,10 @@
                                         <div class="card-body bg-success bg-opacity-10">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <span class="badge bg-secondary">{{ $attempt->question->subject->name ?? 'N/A' }}</span>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-calendar me-1"></i>{{ $attempt->created_at->format('M j, Y') }}
+                                                    <i class="fas fa-clock ms-2 me-1"></i>{{ $attempt->created_at->format('g:i A') }}
+                                                </small>
                                             </div>
                                             <h6 class="fw-bold mb-3">{!! $attempt->question->question !!}</h6>
                                             <div class="options">
@@ -146,6 +150,10 @@
                                         <div class="card-body bg-danger bg-opacity-10">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <span class="badge bg-secondary">{{ $attempt->question->subject->name ?? 'N/A' }}</span>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-calendar me-1"></i>{{ $attempt->created_at->format('M j, Y') }}
+                                                    <i class="fas fa-clock ms-2 me-1"></i>{{ $attempt->created_at->format('g:i A') }}
+                                                </small>
                                             </div>
                                             <h6 class="fw-bold mb-3">{!! $attempt->question->question !!}</h6>
                                             <div class="options">

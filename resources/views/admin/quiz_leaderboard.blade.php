@@ -59,9 +59,9 @@
                             <i class="fas fa-chart-line fa-2x text-warning mb-2"></i>
                             <h3 class="mb-0">
                                 @php
-                                    $totalAttempts = array_sum(array_column($rankings, 'total_attempted'));
+                                    $totalExpected = array_sum(array_column($rankings, 'total_expected'));
                                     $totalCorrect = array_sum(array_column($rankings, 'total_correct'));
-                                    $avgAccuracy = $totalAttempts > 0 ? round(($totalCorrect / $totalAttempts) * 100, 1) : 0;
+                                    $avgAccuracy = $totalExpected > 0 ? round(($totalCorrect / $totalExpected) * 100, 1) : 0;
                                 @endphp
                                 {{ $avgAccuracy }}%
                             </h3>
@@ -104,7 +104,7 @@
                                             <td class="px-4 py-3 text-center">
                                                 @if(isset($ranking['subjects'][$subject->id]))
                                                     <span class="badge bg-info text-dark">
-                                                        {{ $ranking['subjects'][$subject->id]['correct'] }}/{{ $ranking['subjects'][$subject->id]['total'] }}
+                                                        {{ $ranking['subjects'][$subject->id]['correct'] }}/{{ $ranking['subjects'][$subject->id]['expected'] }}
                                                     </span>
                                                 @else
                                                     <span class="text-muted">-</span>
@@ -113,7 +113,7 @@
                                         @endforeach
                                         <td class="px-4 py-3 text-center">
                                             <span class="badge bg-primary fw-bold">
-                                                {{ $ranking['total_correct'] }}/{{ $ranking['total_attempted'] }}
+                                                {{ $ranking['total_correct'] }}/{{ $ranking['total_expected'] }}
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-center">
