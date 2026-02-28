@@ -12,12 +12,12 @@ Route::get('/quizzer/stats', [StatisticsApiController::class, 'index']);
 
 // Public routes
 Route::get('/', function () {
-    return view('welcome');
-})->name('welcome');
+    return view('splash');
+})->name('splash');
 
 Route::get('/welcome', function () {
     return view('welcome');
-});
+})->name('welcome');
 
 // Auth routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

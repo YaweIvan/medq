@@ -57,11 +57,11 @@
         .content-wrapper {
             position: relative;
             z-index: 2;
-            padding: 4rem 0;
+            padding: 1rem 0;
         }
         
         .logo {
-            font-size: 4rem;
+            font-size: 3rem;
             font-weight: 800;
             color: #93c5fd;
             text-shadow: 0 4px 20px rgba(147, 197, 253, 0.3);
@@ -77,7 +77,7 @@
             background: #ffffff;
             border: 2px solid #e5e7eb;
             border-radius: 20px;
-            padding: 2rem;
+            padding: 1.5rem;
             transition: all 0.3s ease;
             height: 100%;
             box-shadow: 0 4px 20px rgba(0,0,0,0.08);
@@ -90,15 +90,15 @@
         }
         
         .card-icon {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             background: #93c5fd;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1.5rem;
-            font-size: 2rem;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
             color: white;
         }
         
@@ -116,15 +116,53 @@
         }
         
         .feature-list li {
-            padding: 0.5rem 0;
+            padding: 0.25rem 0;
             color: #4b5563;
             display: flex;
             align-items: center;
+            font-size: 0.85rem;
         }
         
         .feature-list li i {
             margin-right: 0.5rem;
             color: #10b981;
+        }
+        
+        .mumsa-branding {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 10px 0;
+            margin-bottom: 10px;
+        }
+        
+        .mumsa-logo-small {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid #93c5fd;
+            padding: 5px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .mumsa-text {
+            text-align: left;
+        }
+        
+        .mumsa-text .association {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0;
+            line-height: 1.4;
+        }
+        
+        .mumsa-text .copyright {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin: 0;
         }
     </style>
 </head>
@@ -134,21 +172,30 @@
         
         <div class="content-wrapper">
             <div class="container">
-                <!-- Header Section -->
-                <div class="text-center mb-5">
-                    <div class="logo mb-4">
-                        <img src="https://cdn-icons-png.flaticon.com/512/684/684262.png" style="width: 64px; height: 64px; vertical-align: middle; margin-right: 10px;"> MedQ
+                <!-- MUMSA Branding -->
+                <div class="mumsa-branding">
+                    <img src="{{ asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo-small">
+                    <div class="mumsa-text">
+                        <p class="association">MAKERERE UNIVERSITY MEDICAL<br>STUDENTS ASSOCIATION (MUMSA)</p>
+                        <p class="copyright">All Rights Reserved © 2026</p>
                     </div>
-                    <h1 class="fw-bold mb-3" style="color: #1e293b;">Medical Quiz Platform</h1>
-                    <p class="fs-5 mb-4" style="color: #64748b;">Advanced medical knowledge assessment system for healthcare professionals and students</p>
+                </div>
+                
+                <!-- Header Section -->
+                <div class="text-center mb-3">
+                    <div class="logo mb-2">
+                        <img src="https://cdn-icons-png.flaticon.com/512/684/684262.png" style="width: 48px; height: 48px; vertical-align: middle; margin-right: 10px;"> MedQ
+                    </div>
+                    <h1 class="fw-bold mb-2" style="color: #1e293b; font-size: 1.75rem;">Medical Quiz Platform</h1>
+                    <p class="mb-2" style="color: #64748b; font-size: 0.95rem;">Advanced medical knowledge assessment system for healthcare professionals and students</p>
                     
                     <div class="row justify-content-center">
                         <div class="col-lg-8">
-                            <ul class="feature-list d-flex flex-wrap justify-content-center gap-4 mb-0">
-                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Interactive Quizzes</li>
-                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Real-time Feedback</li>
-                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Progress Tracking</li>
-                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Subject-based Learning</li>
+                            <ul class="feature-list d-flex flex-wrap justify-content-center gap-2 mb-0">
+                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"> Interactive Quizzes</li>
+                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"> Real-time Feedback</li>
+                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"> Progress Tracking</li>
+                                <li><img src="https://cdn-icons-png.flaticon.com/512/5610/5610944.png" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"> Subject-based Learning</li>
                             </ul>
                         </div>
                     </div>
@@ -159,15 +206,15 @@
                     <div class="col-lg-5 col-md-6">
                         <div class="login-card text-center">
                             <div class="card-icon">
-                                <img src="https://cdn-icons-png.flaticon.com/512/3774/3774299.png" style="width: 48px; height: 48px;">
+                                <img src="https://cdn-icons-png.flaticon.com/512/3774/3774299.png" style="width: 36px; height: 36px;">
                             </div>
-                            <h3 class="fw-bold mb-3" style="color: #1e293b;">Administrator Portal</h3>
-                            <p class="mb-4" style="color: #64748b;">Manage quizzes, users, and monitor platform performance with comprehensive admin tools.</p>
+                            <h3 class="fw-bold mb-2" style="color: #1e293b; font-size: 1.25rem;">Administrator Portal</h3>
+                            <p class="mb-3" style="color: #64748b; font-size: 0.85rem;">Manage quizzes, users, and monitor platform performance with comprehensive admin tools.</p>
                             
 
                             
-                            <a href="{{ route('login') }}" class="btn btn-lg w-100 fw-semibold" style="background: #93c5fd; color: white;">
-                                <img src="https://cdn-icons-png.flaticon.com/128/3206/3206130.png" style="width: 20px; height: 20px; margin-right: 8px; filter: brightness(0) invert(1);">Admin Login
+                            <a href="{{ route('login') }}" class="btn w-100 fw-semibold" style="background: #93c5fd; color: white;">
+                                <img src="https://cdn-icons-png.flaticon.com/128/3206/3206130.png" style="width: 18px; height: 18px; margin-right: 6px; filter: brightness(0) invert(1);">Admin Login
                             </a>
                         </div>
                     </div>
@@ -175,26 +222,26 @@
                     <div class="col-lg-5 col-md-6">
                         <div class="login-card text-center">
                             <div class="card-icon">
-                                <img src="https://cdn-icons-png.flaticon.com/128/3135/3135810.png" style="width: 48px; height: 48px;">
+                                <img src="https://cdn-icons-png.flaticon.com/128/3135/3135810.png" style="width: 36px; height: 36px;">
                             </div>
-                            <h3 class="fw-bold mb-3" style="color: #1e293b;">Student Portal</h3>
-                            <p class="mb-4" style="color: #64748b;">Access assigned quizzes, track your progress, and enhance your medical knowledge through interactive learning.</p>
+                            <h3 class="fw-bold mb-2" style="color: #1e293b; font-size: 1.25rem;">Student Portal</h3>
+                            <p class="mb-3" style="color: #64748b; font-size: 0.85rem;">Access assigned quizzes, track your progress, and enhance your medical knowledge through interactive learning.</p>
                             
 
                             <!-- uncomment to work 😂 -->
-                            <a href="{{ route('login') }}" class="btn btn-lg w-100 fw-semibold" style="background: white; color: #93c5fd; border: 2px solid #93c5fd;">
-                                <img src="https://cdn-icons-png.flaticon.com/512/9068/9068642.png" style="width: 20px; height: 20px; margin-right: 8px;">Student Login
+                            <a href="{{ route('login') }}" class="btn w-100 fw-semibold" style="background: white; color: #93c5fd; border: 2px solid #93c5fd;">
+                                <img src="https://cdn-icons-png.flaticon.com/512/9068/9068642.png" style="width: 18px; height: 18px; margin-right: 6px;">Student Login
                             </a>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Register Section -->
-                <div class="text-center mt-5 pt-4">
-                    <div class="border-top pt-4" style="border-color: #e5e7eb !important;">
-                        <p class="mb-3" style="color: #64748b;">New to MedQ? Join thousands of medical professionals</p>
-                        <a href="{{ route('register') }}" class="btn btn-success btn-lg px-5">
-                            <img src="https://cdn-icons-png.flaticon.com/128/14616/14616849.png" style="width: 20px; height: 20px; margin-right: 8px; filter: brightness(0) invert(1);">Create Free Account
+                <div class="text-center mt-3 pt-3">
+                    <div class="border-top pt-3" style="border-color: #e5e7eb !important;">
+                        <p class="mb-2" style="color: #64748b; font-size: 0.9rem;">New to MedQ? Join thousands of medical professionals</p>
+                        <a href="{{ route('register') }}" class="btn btn-success px-4">
+                            <img src="https://cdn-icons-png.flaticon.com/128/14616/14616849.png" style="width: 18px; height: 18px; margin-right: 6px; filter: brightness(0) invert(1);">Create Free Account
                         </a>
                     </div>
                 </div>
