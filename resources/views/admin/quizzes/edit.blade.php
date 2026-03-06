@@ -116,6 +116,7 @@
                             $subjectId = $questions->first()->subject_id;
                             $currentTime = $questions->first()->time_per_question ?? 60;
                             $maxQuestions = $questions->first()->subject->max_questions ?? 5;
+                            $marksPerQuestion = $questions->first()->subject->marks_per_question ?? 1;
                         @endphp
                         <div class="subject-info mb-3 p-3 border rounded">
                             <div class="d-flex justify-content-between align-items-center">
@@ -123,7 +124,7 @@
                                     <h6 class="fw-bold mb-1">{{ $subjectName }}</h6>
                                     <p class="mb-0 text-muted">
                                         {{ $questions->count() }} questions • {{ $currentTime }} seconds per question
-                                        • Max: {{ $maxQuestions }} questions per attempt
+                                        • Max: {{ $maxQuestions }} questions per attempt • {{ $marksPerQuestion }} mark(s) per question
                                     </p>
                                 </div>
                                 <div class="btn-group">
@@ -162,6 +163,12 @@
                                                    value="{{ $maxQuestions }}" min="1" placeholder="5">
                                             <small class="text-muted">Limit how many questions from this subject each student attempts (optional)</small>
                                         </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Marks per Question</label>
+                                            <input type="number" class="form-control" id="marksInput{{ $subjectId }}" 
+                                                   value="{{ $marksPerQuestion }}" min="1" placeholder="1">
+                                            <small class="text-muted">Set score value for each correct answer in this subject</small>
+                                        </div>
                                     </div>
                                     <div class="modal-footer">
                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -185,11 +192,16 @@
                                 <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy">
                             </div>
                             <div class="row">
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
                                     <label class="form-label">Time per Question (seconds) <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control time-per-question" placeholder="60" value="60" min="10" max="600">
                                 </div>
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Marks per Question</label>
+                                    <input type="number" class="form-control marks-per-question" placeholder="1" min="1" value="1">
+                                    <small class="text-muted">Score per correct answer</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
                                     <label class="form-label">Max Questions per Attempt</label>
                                     <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
                                     <small class="text-muted">Optional: Limit questions per student</small>
@@ -524,11 +536,16 @@
                 <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy">
             </div>
             <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                     <label class="form-label">Time per Question (seconds) <span class="text-danger">*</span></label>
                     <input type="number" class="form-control time-per-question" placeholder="60" value="60" min="10" max="600">
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Marks per Question</label>
+                    <input type="number" class="form-control marks-per-question" placeholder="1" min="1" value="1">
+                    <small class="text-muted">Score per correct answer</small>
+                </div>
+                <div class="col-md-4 mb-3">
                     <label class="form-label">Max Questions per Attempt</label>
                     <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
                     <small class="text-muted">Optional: Limit questions per student</small>
@@ -553,11 +570,12 @@
         for (let item of subjectItems) {
             const name = item.querySelector('.subject-name').value.trim();
             const timePerQuestion = item.querySelector('.time-per-question').value || 60;
+            const marksPerQuestion = item.querySelector('.marks-per-question').value || 1;
             const maxQuestions = item.querySelector('.max-questions').value || 5;
             const file = item.querySelector('.subject-file').files[0];
             
             if (name && file) {
-                subjects.push({ name, timePerQuestion, maxQuestions, file });
+                subjects.push({ name, timePerQuestion, marksPerQuestion, maxQuestions, file });
             }
         }
         
@@ -572,6 +590,7 @@
         subjects.forEach((subject, index) => {
             formData.append(`subjects[${index}][name]`, subject.name);
             formData.append(`subjects[${index}][time_per_question]`, subject.timePerQuestion);
+            formData.append(`subjects[${index}][marks_per_question]`, subject.marksPerQuestion);
             formData.append(`subjects[${index}][max_questions]`, subject.maxQuestions);
             formData.append(`subjects[${index}][file]`, subject.file);
         });
@@ -602,9 +621,15 @@
     async function updateSubjectSettings(quizId, subjectId, subjectName) {
         const newTime = document.getElementById(`timeInput${subjectId}`).value;
         const maxQuestions = document.getElementById(`maxQuestionsInput${subjectId}`).value;
+        const marksPerQuestion = document.getElementById(`marksInput${subjectId}`).value || 1;
         
         if (newTime < 10 || newTime > 600) {
             alert('Time must be between 10 and 600 seconds');
+            return;
+        }
+
+        if (marksPerQuestion < 1) {
+            alert('Marks per question must be at least 1');
             return;
         }
         
@@ -618,6 +643,7 @@
                 },
                 body: JSON.stringify({
                     time_per_question: newTime,
+                    marks_per_question: marksPerQuestion,
                     max_questions: maxQuestions || 5
                 })
             });

@@ -9,7 +9,7 @@ class Subject extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'max_questions'];
+    protected $fillable = ['name', 'max_questions', 'marks_per_question'];
 
     public function questions()
     {

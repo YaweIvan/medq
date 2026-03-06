@@ -59,9 +59,9 @@
                             <i class="fas fa-chart-line fa-2x text-warning mb-2"></i>
                             <h3 class="mb-0">
                                 @php
-                                    $totalExpected = array_sum(array_column($rankings, 'total_expected'));
-                                    $totalCorrect = array_sum(array_column($rankings, 'total_correct'));
-                                    $avgAccuracy = $totalExpected > 0 ? round(($totalCorrect / $totalExpected) * 100, 1) : 0;
+                                    $totalMax = array_sum(array_column($rankings, 'total_max_points'));
+                                    $totalPts = array_sum(array_column($rankings, 'total_points'));
+                                    $avgAccuracy = $totalMax > 0 ? round(($totalPts / $totalMax) * 100, 1) : 0;
                                 @endphp
                                 {{ $avgAccuracy }}%
                             </h3>
@@ -103,8 +103,9 @@
                                         @foreach($subjects as $subject)
                                             <td class="px-4 py-3 text-center">
                                                 @if(isset($ranking['subjects'][$subject->id]))
-                                                    <span class="badge bg-info text-dark">
-                                                        {{ $ranking['subjects'][$subject->id]['correct'] }}/{{ $ranking['subjects'][$subject->id]['expected'] }}
+                                                    @php $sd = $ranking['subjects'][$subject->id]; @endphp
+                                                    <span class="badge bg-info text-dark" title="{{ $sd['correct'] }} correct × {{ $sd['marks'] }} mark(s)">
+                                                        {{ $sd['points'] }}/{{ $sd['max_points'] }} pts
                                                     </span>
                                                 @else
                                                     <span class="text-muted">-</span>
@@ -113,7 +114,7 @@
                                         @endforeach
                                         <td class="px-4 py-3 text-center">
                                             <span class="badge bg-primary fw-bold">
-                                                {{ $ranking['total_correct'] }}/{{ $ranking['total_expected'] }}
+                                                {{ $ranking['total_points'] }}/{{ $ranking['total_max_points'] }} pts
                                             </span>
                                         </td>
                                         <td class="px-4 py-3 text-center">

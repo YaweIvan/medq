@@ -98,9 +98,9 @@
                                     <th>Quiz</th>
                                     <th class="text-center">Last Attempt</th>
                                     <th class="text-center">Rank</th>
-                                    <th class="text-center">Correct</th>
-                                    <th class="text-center">Total</th>
-                                    <th class="text-center">Accuracy</th>
+                                    <th class="text-center">Points Earned</th>
+                                    <th class="text-center">Max Points</th>
+                                    <th class="text-center">Score %</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -114,8 +114,8 @@
                                             </small>
                                         </td>
                                         <td class="text-center"><span class="badge bg-primary">${quiz.rank}</span></td>
-                                        <td class="text-center text-success">${quiz.correct}</td>
-                                        <td class="text-center">${quiz.total}</td>
+                                        <td class="text-center text-success fw-bold">${quiz.points ?? quiz.correct}</td>
+                                        <td class="text-center text-muted">${quiz.total_max_points ?? quiz.total}</td>
                                         <td class="text-center"><strong>${quiz.accuracy}%</strong></td>
                                     </tr>
                                 `).join('')}

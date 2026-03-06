@@ -32,7 +32,7 @@
                                 <tr>
                                     <th>Position</th>
                                     <th>Name of Student</th>
-                                    <th class="text-center">Questions Passed/Total Attempted</th>
+                                    <th class="text-center">Points Earned / Max Points</th>
                                     <th class="text-center">Percentage</th>
                                     <th class="text-center">Last Attempt</th>
                                 </tr>
@@ -42,7 +42,7 @@
                                     <tr style="cursor: pointer;" onclick="window.location.href='{{ route('admin.student.subject.review', [$quiz->id, $subject->id, $ranking->user_id]) }}'">
                                         <td><span class="badge bg-primary">{{ $index + 1 }}</span></td>
                                         <td><strong>{{ $ranking->user->name }}</strong></td>
-                                        <td class="text-center">{{ $ranking->correct }}/{{ $ranking->total }}</td>
+                                        <td class="text-center">{{ $ranking->points }}/{{ $ranking->max_points }}</td>
                                         <td class="text-center"><strong>{{ $ranking->percentage }}%</strong></td>
                                         <td class="text-center">
                                             <small class="text-muted">

@@ -108,11 +108,16 @@
                                     <div class="invalid-feedback"></div>
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label">Marks per Question <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control marks-per-question" placeholder="1" value="1" min="1" required>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                                <div class="col-md-2">
                                     <label class="form-label">Max Questions <span class="text-muted">(default: 5)</span></label>
                                     <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
                                     <small class="text-muted">Leave empty for all</small>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label class="form-label">Questions File <span class="text-danger">*</span></label>
                                     <div class="file-upload-area" onclick="triggerFileInput(this)">
                                         <input type="file" class="file-input" accept=".xlsx,.xls,.csv" style="display: none;" required>
@@ -451,11 +456,16 @@
                     <div class="invalid-feedback"></div>
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label">Marks per Question <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control marks-per-question" placeholder="1" value="1" min="1" required>
+                    <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label">Max Questions <span class="text-muted">(default: 5)</span></label>
                     <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
                     <small class="text-muted">Leave empty for all</small>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label">Questions File <span class="text-danger">*</span></label>
                     <div class="file-upload-area" onclick="triggerFileInput(this)">
                         <input type="file" class="file-input" accept=".xlsx,.xls,.csv" style="display: none;" required>
@@ -538,11 +548,13 @@
         subjects.forEach((subject, index) => {
             const name = subject.querySelector('.subject-name').value;
             const timePerQuestion = subject.querySelector('.time-per-question').value;
+            const marksPerQuestion = subject.querySelector('.marks-per-question').value || 1;
             const maxQuestions = subject.querySelector('.max-questions').value || 5;
             const file = subject.querySelector('.file-input').files[0];
             
             formData.append(`subjects[${index}][name]`, name);
             formData.append(`subjects[${index}][time_per_question]`, timePerQuestion);
+            formData.append(`subjects[${index}][marks_per_question]`, marksPerQuestion);
             formData.append(`subjects[${index}][max_questions]`, maxQuestions);
             formData.append(`subjects[${index}][file]`, file);
         });

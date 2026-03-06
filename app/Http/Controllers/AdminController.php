@@ -109,6 +109,7 @@ class AdminController extends Controller
                 'title' => 'required|string|max:255',
                 'participant_ids' => 'required|string',
                 'subjects' => 'required|array',
+                'subjects.*.marks_per_question' => 'nullable|integer|min:1',
                 'is_active' => 'boolean',
             ]);
 
@@ -147,14 +148,18 @@ class AdminController extends Controller
                 }
                 
                 $maxQuestions = isset($subjectData['max_questions']) ? (int)$subjectData['max_questions'] : 5;
+                $marksPerQuestion = isset($subjectData['marks_per_question']) ? (int)$subjectData['marks_per_question'] : 1;
                 
                 $subject = Subject::firstOrCreate(
                     ['name' => $subjectName],
-                    ['max_questions' => $maxQuestions]
+                    ['max_questions' => $maxQuestions, 'marks_per_question' => $marksPerQuestion]
                 );
                 
                 // Update max_questions for existing subject
-                $subject->update(['max_questions' => $maxQuestions]);
+                $subject->update([
+                    'max_questions' => $maxQuestions,
+                    'marks_per_question' => $marksPerQuestion,
+                ]);
                 
                 $timePerQuestion = isset($subjectData['time_per_question']) ? (int)$subjectData['time_per_question'] : 60;
                 
@@ -591,85 +596,94 @@ class AdminController extends Controller
         $subjects = Subject::whereHas('questions', function($query) use ($quizId) {
             $query->where('quiz_id', $quizId);
         })->get();
-        
-        // Calculate total expected questions based on max_questions per subject
-        $totalExpected = 0;
+
+        // Calculate total max points = sum(max_questions × marks_per_question) across all subjects
+        $totalMaxPoints = 0;
         foreach ($subjects as $subject) {
-            $totalExpected += $subject->max_questions ?? 5;
+            $totalMaxPoints += ($subject->max_questions ?? 5) * ($subject->marks_per_question ?? 1);
         }
-        
-        // Get all users who attempted this quiz
-        $userIds = QuizAttempt::where('quiz_id', $quizId)
-            ->distinct()
-            ->pluck('user_id');
-        
+
+        // Fetch per-user, per-subject correct counts in a single query
+        $subjectCorrects = \DB::table('quiz_attempts')
+            ->join('questions', 'quiz_attempts.question_id', '=', 'questions.id')
+            ->where('quiz_attempts.quiz_id', $quizId)
+            ->select('quiz_attempts.user_id', 'questions.subject_id',
+                \DB::raw('SUM(quiz_attempts.is_correct) as correct_count'))
+            ->groupBy('quiz_attempts.user_id', 'questions.subject_id')
+            ->get()
+            ->groupBy('user_id');
+
+        // Fetch last-attempt timestamps per user
+        $lastAttempts = \DB::table('quiz_attempts')
+            ->where('quiz_id', $quizId)
+            ->select('user_id', \DB::raw('MAX(created_at) as last_at'))
+            ->groupBy('user_id')
+            ->pluck('last_at', 'user_id');
+
+        $userIds = $subjectCorrects->keys();
         $rankings = [];
-        
+
         foreach ($userIds as $userId) {
             $user = User::find($userId);
             if (!$user) continue;
-            
-            // Get the last attempt date for this user in this quiz
-            $lastAttempt = QuizAttempt::where('quiz_id', $quizId)
-                ->where('user_id', $userId)
-                ->latest('created_at')
-                ->first();
-            
+
+            $lastAt    = $lastAttempts[$userId] ?? null;
+            $lastCarbon = $lastAt ? \Carbon\Carbon::parse($lastAt) : null;
+
             $userStats = [
-                'user_id' => $userId,
-                'user_name' => $user->name,
-                'subjects' => [],
-                'total_correct' => 0,
-                'total_attempted' => 0,
-                'total_expected' => $totalExpected,
-                'last_attempt_date' => $lastAttempt ? $lastAttempt->created_at->format('M j, Y') : 'N/A',
-                'last_attempt_time' => $lastAttempt ? $lastAttempt->created_at->format('g:i A') : '',
+                'user_id'           => $userId,
+                'user_name'         => $user->name,
+                'subjects'          => [],
+                'total_points'      => 0,
+                'total_max_points'  => $totalMaxPoints,
+                // kept for backward-compat references
+                'total_correct'     => 0,
+                'total_expected'    => $totalMaxPoints,
+                'last_attempt_date' => $lastCarbon ? $lastCarbon->format('M j, Y') : 'N/A',
+                'last_attempt_time' => $lastCarbon ? $lastCarbon->format('g:i A') : '',
             ];
-            
-            // Calculate stats for each subject
+
             foreach ($subjects as $subject) {
-                $subjectAttempts = QuizAttempt::where('quiz_id', $quizId)
-                    ->where('user_id', $userId)
-                    ->whereHas('question', function($query) use ($subject) {
-                        $query->where('subject_id', $subject->id);
-                    })
-                    ->get();
-                
-                $correct = $subjectAttempts->where('is_correct', true)->count();
-                $total = $subjectAttempts->count();
-                $expected = $subject->max_questions ?? 5;
-                
+                $marks    = $subject->marks_per_question ?? 1;
+                $maxQ     = $subject->max_questions ?? 5;
+                $maxPts   = $maxQ * $marks;
+
+                $correctRow = $subjectCorrects[$userId]
+                    ->firstWhere('subject_id', $subject->id);
+                $correct = $correctRow ? (int)$correctRow->correct_count : 0;
+                $points  = $correct * $marks;
+
                 $userStats['subjects'][$subject->id] = [
-                    'correct' => $correct,
-                    'total' => $total,
-                    'expected' => $expected,
+                    'correct'    => $correct,
+                    'expected'   => $maxQ,
+                    'marks'      => $marks,
+                    'points'     => $points,
+                    'max_points' => $maxPts,
                 ];
-                
-                $userStats['total_correct'] += $correct;
-                $userStats['total_attempted'] += $total;
+
+                $userStats['total_points']  += $points;
+                $userStats['total_correct'] += $correct;   // raw correct count
             }
-            
-            // Calculate percentage based on total expected, not total attempted
-            $userStats['percentage'] = $totalExpected > 0 
-                ? round(($userStats['total_correct'] / $totalExpected) * 100, 2) 
+
+            $userStats['percentage'] = $totalMaxPoints > 0
+                ? round(($userStats['total_points'] / $totalMaxPoints) * 100, 2)
                 : 0;
-            
+
             $rankings[] = $userStats;
         }
-        
-        // Sort by total correct (descending), then by percentage
+
+        // Sort by total points (descending), then by percentage
         usort($rankings, function($a, $b) {
-            if ($a['total_correct'] == $b['total_correct']) {
+            if ($a['total_points'] == $b['total_points']) {
                 return $b['percentage'] <=> $a['percentage'];
             }
-            return $b['total_correct'] <=> $a['total_correct'];
+            return $b['total_points'] <=> $a['total_points'];
         });
-        
-        // Add position
+
         foreach ($rankings as $index => &$ranking) {
             $ranking['position'] = $index + 1;
         }
-        
+
         return ['rankings' => $rankings, 'subjects' => $subjects];
     }
 
@@ -725,15 +739,15 @@ class AdminController extends Controller
             $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['user_name']);
             
             foreach ($subjects as $subject) {
-                $value = isset($ranking['subjects'][$subject->id]) 
-                    ? $ranking['subjects'][$subject->id]['correct'] . '/' . $ranking['subjects'][$subject->id]['expected']
+                $value = isset($ranking['subjects'][$subject->id])
+                    ? $ranking['subjects'][$subject->id]['points'] . '/' . $ranking['subjects'][$subject->id]['max_points']
                     : '-';
                 $sheet->setCellValueByColumnAndRow($col++, $row, $value);
             }
-            
-            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['total_correct'] . '/' . $ranking['total_expected']);
+
+            $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['total_points'] . '/' . $ranking['total_max_points']);
             $sheet->setCellValueByColumnAndRow($col++, $row, $ranking['percentage'] . '%');
-            
+
             $row++;
         }
         
@@ -758,6 +772,10 @@ class AdminController extends Controller
         $quiz = Quiz::findOrFail($quizId);
         $subject = Subject::findOrFail($subjectId);
         
+        $marks    = $subject->marks_per_question ?? 1;
+        $maxQ     = $subject->max_questions ?? 5;
+        $maxPts   = $maxQ * $marks;
+
         $rankings = QuizAttempt::where('quiz_id', $quizId)
             ->whereHas('question', function($query) use ($subjectId) {
                 $query->where('subject_id', $subjectId);
@@ -766,8 +784,10 @@ class AdminController extends Controller
             ->groupBy('user_id')
             ->with('user')
             ->get()
-            ->map(function($item) use ($quizId, $subjectId) {
-                $item->percentage = $item->total > 0 ? round(($item->correct / $item->total) * 100, 2) : 0;
+            ->map(function($item) use ($quizId, $subjectId, $marks, $maxPts) {
+                $item->points    = (int)$item->correct * $marks;
+                $item->max_points = $maxPts;
+                $item->percentage = $maxPts > 0 ? round(($item->points / $maxPts) * 100, 2) : 0;
                 
                 // Get the actual last attempt with proper Carbon instance
                 $lastAttempt = QuizAttempt::where('quiz_id', $quizId)
@@ -979,14 +999,18 @@ class AdminController extends Controller
             foreach ($request->subjects as $index => $subjectData) {
                 $subjectName = trim($subjectData['name']);
                 $maxQuestions = isset($subjectData['max_questions']) ? (int)$subjectData['max_questions'] : 5;
+                $marksPerQuestion = isset($subjectData['marks_per_question']) ? (int)$subjectData['marks_per_question'] : 1;
                 
                 $subject = Subject::firstOrCreate(
                     ['name' => $subjectName],
-                    ['max_questions' => $maxQuestions]
+                    ['max_questions' => $maxQuestions, 'marks_per_question' => $marksPerQuestion]
                 );
                 
                 // Update max_questions for existing subject
-                $subject->update(['max_questions' => $maxQuestions]);
+                $subject->update([
+                    'max_questions' => $maxQuestions,
+                    'marks_per_question' => $marksPerQuestion,
+                ]);
                 
                 $timePerQuestion = isset($subjectData['time_per_question']) ? (int)$subjectData['time_per_question'] : 60;
                 
@@ -1196,9 +1220,14 @@ class AdminController extends Controller
         try {
             $timePerQuestion = $request->input('time_per_question');
             $maxQuestions = $request->input('max_questions', 5);
+            $marksPerQuestion = $request->input('marks_per_question', 1);
             
             if ($timePerQuestion < 10 || $timePerQuestion > 600) {
                 return response()->json(['success' => false, 'message' => 'Time must be between 10 and 600 seconds'], 400);
+            }
+
+            if ($marksPerQuestion < 1) {
+                return response()->json(['success' => false, 'message' => 'Marks per question must be at least 1'], 400);
             }
             
             // Update questions time per question
@@ -1210,6 +1239,7 @@ class AdminController extends Controller
             $subject = Subject::find($subjectId);
             if ($subject) {
                 $subject->max_questions = $maxQuestions;
+                $subject->marks_per_question = $marksPerQuestion;
                 $subject->save();
             }
             

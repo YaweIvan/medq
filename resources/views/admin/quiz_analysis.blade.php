@@ -73,8 +73,9 @@
                                             @foreach($subjects as $subject)
                                                 <td class="px-4 py-3 text-center">
                                                     @if(isset($ranking['subjects'][$subject->id]))
-                                                        <span class="badge bg-info text-dark">
-                                                            {{ $ranking['subjects'][$subject->id]['correct'] }}/{{ $ranking['subjects'][$subject->id]['expected'] }}
+                                                        @php $sd = $ranking['subjects'][$subject->id]; @endphp
+                                                        <span class="badge bg-info text-dark" title="{{ $sd['correct'] }} correct × {{ $sd['marks'] }} mark(s)">
+                                                            {{ $sd['points'] }}/{{ $sd['max_points'] }} pts
                                                         </span>
                                                     @else
                                                         <span class="text-muted">-</span>
@@ -83,7 +84,7 @@
                                             @endforeach
                                             <td class="px-4 py-3 text-center">
                                                 <span class="badge bg-primary fw-bold">
-                                                    {{ $ranking['total_correct'] }}/{{ $ranking['total_expected'] }}
+                                                    {{ $ranking['total_points'] }}/{{ $ranking['total_max_points'] }} pts
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 text-center">

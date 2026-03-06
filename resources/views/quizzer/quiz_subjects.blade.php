@@ -53,7 +53,7 @@
                                 <h5 class="card-title text-dark mb-2">{{ $subject->name }}</h5>
                                 <p class="card-text mb-3">
                                     <span class="badge bg-primary">{{ $subject->available_questions }} questions available</span>
-                                    <br><span class="badge bg-info mt-2">{{ $subject->max_questions ?? 5 }} questions per attempt</span>
+                                    <br><span class="badge bg-info mt-2">{{ $subject->max_questions ?? 5 }} questions per attempt ({{ $subject->marks_per_question ?? 1 }} marks each)</span>
                                 </p>
                                 @if($subject->available_questions > 0)
                                     <a href="{{ route('quizzer.question.grid', [$quiz->id, $subject->id]) }}" class="btn btn-info px-3">
