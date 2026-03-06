@@ -20,7 +20,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // Catch CSRF token mismatch (419) — redirect silently to login
         $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
-            return redirect()->route('login')->withErrors(['email' => 'Your session has expired. Please log in again.']);
+            return redirect()->route('login');
+        });
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, \Illuminate\Http\Request $request) {
+            if ($e->getStatusCode() === 419) {
+                return redirect()->route('login');
+            }
         });
     })->create();

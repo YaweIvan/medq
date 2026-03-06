@@ -32,7 +32,7 @@
     <div class="sidebar-section">
         <div class="sidebar-title">Active Quizzes</div>
         @php
-            $activeQuizzes = auth()->user()->quizzes()->where('is_active', true)->get();
+            $activeQuizzes = auth()->user()->quizzes()->select('quizzes.*')->where('is_active', true)->get();
         @endphp
         @if($activeQuizzes->isNotEmpty())
             @foreach($activeQuizzes as $quiz)

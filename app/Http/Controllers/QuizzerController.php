@@ -14,7 +14,7 @@ class QuizzerController extends Controller
     public function dashboard()
     {
         $user = Auth::user()->fresh(['quizzes']); // Fresh data from database with relationships
-        $activeQuizzes = $user->quizzes()->where('is_active', true)->get();
+        $activeQuizzes = $user->quizzes()->select('quizzes.*')->where('is_active', true)->get();
         
         return response()
             ->view('quizzer.dashboard', compact('activeQuizzes'))
