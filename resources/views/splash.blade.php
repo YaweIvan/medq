@@ -87,15 +87,14 @@
 </head>
 <body>
     <div class="splash-container">
-        <img src="{{ asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo">
+        <img src="{{ $splashLogo ? asset('storage/' . $splashLogo) : asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo">
         
         <div class="branding-text">
-            MAKERERE UNIVERSITY MEDICAL<br>
-            STUDENTS ASSOCIATION
+            {{ $orgName }}
         </div>
         
         <div class="tagline">
-            All Rights Reserved © 2026
+            {{ $orgTagline }}
         </div>
         
         <div class="loading-dots">
@@ -107,8 +106,12 @@
     
     <script>
         setTimeout(() => {
-            window.location.href = '{{ route("welcome") }}';
-        }, 3000);
+            @if(session('after_splash') === 'login')
+                window.location.href = '{{ route("login") }}';
+            @else
+                window.location.href = '{{ route("welcome") }}';
+            @endif
+        }, 2000);
     </script>
 </body>
 </html>

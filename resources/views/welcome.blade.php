@@ -174,10 +174,10 @@
             <div class="container">
                 <!-- MUMSA Branding -->
                 <div class="mumsa-branding">
-                    <img src="{{ asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo-small">
+                    <img src="{{ $welcomeLogo ? asset('storage/' . $welcomeLogo) : asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo-small">
                     <div class="mumsa-text">
-                        <p class="association">MAKERERE UNIVERSITY MEDICAL<br>STUDENTS ASSOCIATION (MUMSA)</p>
-                        <p class="copyright">All Rights Reserved © 2026</p>
+                        <p class="association">{{ $orgName }}</p>
+                        <p class="copyright">{{ $orgTagline }}</p>
                     </div>
                 </div>
                 

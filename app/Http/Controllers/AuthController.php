@@ -14,6 +14,41 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
+    public function showSetup()
+    {
+        return view('auth.setup');
+    }
+
+    public function processSetup(Request $request)
+    {
+        $request->validate([
+            'secret_key'            => 'required|string',
+            'new_email'             => 'required|email|max:255',
+            'new_password'          => 'required|string|min:8|confirmed',
+        ]);
+
+        if (!hash_equals(config('app.setup_secret_key', ''), $request->secret_key)) {
+            return back()->withErrors(['secret_key' => 'Invalid secret key.']);
+        }
+
+        $admin = User::where('role', 'admin')->first();
+        if (!$admin) {
+            return back()->withErrors(['secret_key' => 'No admin account found.']);
+        }
+
+        // Check if the new email belongs to a different (non-admin) user
+        $existing = User::where('email', $request->new_email)->where('id', '!=', $admin->id)->first();
+        if ($existing) {
+            return back()->withErrors(['new_email' => 'That email is already in use by another account.']);
+        }
+
+        $admin->email    = $request->new_email;
+        $admin->password = Hash::make($request->new_password);
+        $admin->save();
+
+        return redirect()->route('login')->with('success', 'Admin credentials updated. You can now log in.');
+    }
+
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -64,6 +99,8 @@ class AuthController extends Controller
     public function logout()
     {
         Auth::logout();
-        return redirect('/');
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect('/')->with('after_splash', 'login');
     }
 }

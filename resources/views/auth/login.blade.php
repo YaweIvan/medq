@@ -33,6 +33,9 @@
                         </div>
                         <h3 class="fw-bold text-dark">Welcome Back</h3>
                         <p class="text-muted">Sign in to your MedQ account</p>
+                        <a href="{{ route('welcome') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-home me-1"></i> Back to Home
+                        </a>
                     </div>
                     <div class="card-body p-4">
                         @if($errors->any())

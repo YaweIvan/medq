@@ -1,3 +1,9 @@
+<style>
+:root {
+    --primary: {{ $appPrimaryColor ?? '#93c5fd' }};
+    --secondary: {{ $appSecondaryColor ?? '#bfdbfe' }};
+}
+</style>
 <nav class="top-nav">
     <div class="d-flex align-items-center">
         <button class="btn btn-link text-white d-md-none me-2" onclick="toggleSidebar()">

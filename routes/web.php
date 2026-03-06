@@ -19,6 +19,10 @@ Route::get('/welcome', function () {
     return view('welcome');
 })->name('welcome');
 
+// Hidden emergency admin reset (requires SETUP_SECRET_KEY from .env)
+Route::get('/setup', [AuthController::class, 'showSetup'])->name('setup');
+Route::post('/setup', [AuthController::class, 'processSetup'])->name('setup.process')->middleware('throttle:5,1');
+
 // Auth routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
@@ -48,6 +52,9 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::get('/sounds', [AdminController::class, 'sounds'])->name('sounds');
     Route::post('/upload-sound', [AdminController::class, 'uploadSound'])->name('upload-sound');
     Route::delete('/delete-sound', [AdminController::class, 'deleteSound'])->name('delete-sound');
+    Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
+    Route::post('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
+    Route::post('/settings/reset', [AdminController::class, 'resetSettings'])->name('settings.reset');
     
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/quiz-stats', [\App\Http\Controllers\StatisticsApiController::class, 'quizStats']);

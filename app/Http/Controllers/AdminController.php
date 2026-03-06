@@ -8,10 +8,12 @@ use App\Models\Subject;
 use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\QuizSound;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\RichText\RichText;
 
@@ -51,6 +53,71 @@ class AdminController extends Controller
         $quizSounds = QuizSound::with('uploader')->get()->keyBy('sound_type');
         
         return view('admin.sounds', compact('quizSounds'));
+    }
+
+    public function settings()
+    {
+        $settings = [
+            'splash_logo'     => Setting::get('splash_logo'),
+            'welcome_logo'    => Setting::get('welcome_logo'),
+            'org_name'        => Setting::get('org_name', 'MAKERERE UNIVERSITY MEDICAL STUDENTS ASSOCIATION (MUMSA)'),
+            'org_tagline'     => Setting::get('org_tagline', 'All Rights Reserved © 2026'),
+            'primary_color'   => Setting::get('primary_color', '#93c5fd'),
+            'secondary_color' => Setting::get('secondary_color', '#bfdbfe'),
+        ];
+        return view('admin.settings', compact('settings'));
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $request->validate([
+            'splash_logo'     => 'nullable|image|mimes:png,jpg,jpeg,gif,svg|max:2048',
+            'welcome_logo'    => 'nullable|image|mimes:png,jpg,jpeg,gif,svg|max:2048',
+            'org_name'        => 'nullable|string|max:255',
+            'org_tagline'     => 'nullable|string|max:255',
+            'primary_color'   => 'nullable|regex:/^#[0-9a-fA-F]{6}$/',
+            'secondary_color' => 'nullable|regex:/^#[0-9a-fA-F]{6}$/',
+        ]);
+
+        if ($request->hasFile('splash_logo')) {
+            $old = Setting::get('splash_logo');
+            if ($old) Storage::disk('public')->delete($old);
+            $path = $request->file('splash_logo')->store('logos', 'public');
+            Setting::set('splash_logo', $path);
+        }
+
+        if ($request->hasFile('welcome_logo')) {
+            $old = Setting::get('welcome_logo');
+            if ($old) Storage::disk('public')->delete($old);
+            $path = $request->file('welcome_logo')->store('logos', 'public');
+            Setting::set('welcome_logo', $path);
+        }
+
+        if ($request->filled('org_name'))        Setting::set('org_name', $request->org_name);
+        if ($request->filled('org_tagline'))     Setting::set('org_tagline', $request->org_tagline);
+        if ($request->filled('primary_color'))   Setting::set('primary_color', $request->primary_color);
+        if ($request->filled('secondary_color')) Setting::set('secondary_color', $request->secondary_color);
+
+        return back()->with('success', 'Settings saved successfully.');
+    }
+
+    public function resetSettings()
+    {
+        // Delete uploaded logos
+        foreach (['splash_logo', 'welcome_logo'] as $key) {
+            $old = Setting::get($key);
+            if ($old) Storage::disk('public')->delete($old);
+        }
+
+        // Reset all settings to defaults
+        Setting::set('splash_logo',     null);
+        Setting::set('welcome_logo',    null);
+        Setting::set('org_name',        'MAKERERE UNIVERSITY MEDICAL STUDENTS ASSOCIATION (MUMSA)');
+        Setting::set('org_tagline',     'All Rights Reserved © 2026');
+        Setting::set('primary_color',   '#93c5fd');
+        Setting::set('secondary_color', '#bfdbfe');
+
+        return back()->with('success', 'All settings have been reset to defaults.');
     }
 
     public function approvals()

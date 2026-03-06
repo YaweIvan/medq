@@ -43,6 +43,14 @@
             <i class="fas fa-book"></i>
             Tutorial
         </a>
+        <a href="{{ route('admin.sounds') }}" class="{{ request()->routeIs('admin.sounds') ? 'active' : '' }}">
+            <i class="fas fa-volume-up"></i>
+            Sounds
+        </a>
+        <a href="{{ route('admin.settings') }}" class="{{ request()->routeIs('admin.settings') ? 'active' : '' }}">
+            <i class="fas fa-cog"></i>
+            Settings
+        </a>
     </div>
 </div>
 
