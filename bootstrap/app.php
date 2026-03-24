@@ -28,5 +28,11 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($e->getStatusCode() === 419) {
                 return redirect()->route('login');
             }
+            if ($e->getStatusCode() === 404) {
+                return redirect()->route('login');
+            }
+        });
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, \Illuminate\Http\Request $request) {
+            return redirect()->route('login');
         });
     })->create();

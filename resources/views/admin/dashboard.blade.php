@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - MedQ</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fontawesome/css/all.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 
 </head>
@@ -29,23 +29,23 @@
         <div class="stats-grid-compact">
             <a href="{{ route('admin.approvals') }}" class="stat-card-compact primary">
                 <h6>Total Users</h6>
-                <div class="stat-value-compact">{{ $stats['total_users'] }}</div>
+                <div class="stat-value-compact" id="stat-total-users">{{ $stats['total_users'] }}</div>
             </a>
             <a href="{{ route('admin.quizzes.index') }}" class="stat-card-compact success">
                 <h6>Total Quizzes</h6>
-                <div class="stat-value-compact">{{ $stats['total_quizzes'] }}</div>
+                <div class="stat-value-compact" id="stat-total-quizzes">{{ $stats['total_quizzes'] }}</div>
             </a>
             <a href="{{ route('admin.approvals') }}" class="stat-card-compact warning">
                 <h6>Pending Approvals</h6>
-                <div class="stat-value-compact">{{ $stats['pending_approvals'] }}</div>
+                <div class="stat-value-compact" id="stat-pending-approvals">{{ $stats['pending_approvals'] }}</div>
             </a>
             <div class="stat-card-compact info">
                 <h6>Total Questions</h6>
-                <div class="stat-value-compact">{{ $stats['total_questions'] }}</div>
+                <div class="stat-value-compact" id="stat-total-questions">{{ $stats['total_questions'] }}</div>
             </div>
             <a href="{{ route('admin.leaderboard') }}" class="stat-card-compact info">
                 <h6>Leaderboard Top 3</h6>
-                <ul class="leaderboard-list-compact">
+                <ul class="leaderboard-list-compact" id="stat-leaderboard">
                     @forelse($topUsers as $index => $user)
                         <li><span class="rank">{{ $index + 1 }}</span> {{ $user->name }} <strong>{{ number_format($user->accuracy, 0) }}%</strong></li>
                     @empty
@@ -88,6 +88,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>

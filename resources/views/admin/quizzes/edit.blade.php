@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Quiz - MedQ</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fontawesome/css/all.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <style>
         .user-card {
@@ -265,7 +265,15 @@
                     <div class="search-box">
                         <input type="text" id="userSearch" class="form-control" placeholder="Search users by name or email...">
                     </div>
-                    
+
+                    <div class="d-flex align-items-center justify-content-between px-1 py-2 border-bottom mb-2">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="selectAllUsers" onchange="toggleSelectAll(this.checked)">
+                            <label class="form-check-label fw-semibold" for="selectAllUsers">Select All</label>
+                        </div>
+                        <small class="text-muted" id="selectedCount"></small>
+                    </div>
+
                     <div class="user-list" id="userList">
                         <p class="text-center text-muted">Loading users...</p>
                     </div>
@@ -328,6 +336,7 @@
         
         if (filteredUsers.length === 0) {
             userList.innerHTML = '<p class="text-muted text-center">No users match your search</p>';
+            updateSelectAllState();
             return;
         }
         
@@ -349,6 +358,44 @@
                 </div>
             `;
         }).join('');
+        updateSelectAllState();
+    }
+
+    function updateSelectAllState() {
+        const visibleCheckboxes = document.querySelectorAll('#userList .form-check-input');
+        const allChecked = visibleCheckboxes.length > 0 && [...visibleCheckboxes].every(cb => cb.checked);
+        const someChecked = [...visibleCheckboxes].some(cb => cb.checked);
+        const selectAll = document.getElementById('selectAllUsers');
+        if (selectAll) {
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+        }
+        const count = document.getElementById('selectedCount');
+        if (count) count.textContent = assignedUsers.length + ' selected';
+    }
+
+    function toggleSelectAll(checked) {
+        const visibleCards = document.querySelectorAll('#userList .user-card');
+        visibleCards.forEach(card => {
+            const userId = parseInt(card.dataset.userId);
+            const cb = card.querySelector('.form-check-input');
+            if (checked) {
+                if (!assignedUsers.includes(userId)) {
+                    assignedUsers.push(userId);
+                }
+                card.classList.add('assigned');
+                if (cb) cb.checked = true;
+            } else {
+                const idx = assignedUsers.indexOf(userId);
+                if (idx > -1) assignedUsers.splice(idx, 1);
+                card.classList.remove('assigned');
+                if (cb) cb.checked = false;
+            }
+        });
+        updateAssignedUsersList();
+        document.getElementById('saveAssignmentsBtn').style.display = 'inline-block';
+        const count = document.getElementById('selectedCount');
+        if (count) count.textContent = assignedUsers.length + ' selected';
     }
 
     function toggleUser(userId, userName) {
@@ -377,6 +424,7 @@
                 card.classList.remove('assigned');
             }
         }
+        updateSelectAllState();
     }
 
     function updateAssignedUsersList() {
@@ -449,7 +497,9 @@
                 document.getElementById('saveAssignmentsBtn').style.display = 'none';
                 
                 alert(`User assignments updated! ${data.assigned_count} user(s) assigned.`);
-                bootstrap.Modal.getInstance(document.getElementById('manageUsersModal'))?.hide();
+                if (window.bootstrap?.Modal) {
+                    bootstrap.Modal.getInstance(document.getElementById('manageUsersModal'))?.hide();
+                }
                 
                 // Reload current edit page
                 setTimeout(() => {
@@ -652,8 +702,10 @@
             
             if (data.success) {
                 // Hide modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById(`editTimeModal${subjectId}`));
-                if (modal) modal.hide();
+                if (window.bootstrap?.Modal) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById(`editTimeModal${subjectId}`));
+                    if (modal) modal.hide();
+                }
                 
                 alert(`Settings updated successfully for "${subjectName}"!\n${data.updated_count} question(s) updated.`);
                 window.location.reload();
@@ -696,6 +748,6 @@
     }
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>

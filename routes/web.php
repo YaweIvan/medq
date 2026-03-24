@@ -62,6 +62,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         Route::get('/quiz-leaderboard/{quiz}', [\App\Http\Controllers\StatisticsApiController::class, 'quizLeaderboardData']);
         Route::get('/leaderboard', [\App\Http\Controllers\StatisticsApiController::class, 'leaderboard']);
         Route::get('/subject-performance', [\App\Http\Controllers\StatisticsApiController::class, 'subjectPerformance']);
+        Route::get('/dashboard-stats', [AdminController::class, 'dashboardStatsApi'])->name('dashboard-stats');
     });
     
     Route::prefix('quizzes')->name('quizzes.')->group(function () {

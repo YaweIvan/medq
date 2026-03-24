@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Review - MedQ</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fontawesome/css/all.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <style>
         .correct-row {
@@ -92,12 +92,12 @@
                                 @foreach($attempts as $attempt)
                                     <tr class="question-row {{ $attempt->is_correct ? 'correct-row' : 'incorrect-row' }}"
                                         data-qnum="{{ $attempt->question_number }}"
-                                        data-question="{{ e($attempt->question->question) }}"
-                                        data-option-a="{{ e($attempt->question->option_a) }}"
-                                        data-option-b="{{ e($attempt->question->option_b) }}"
-                                        data-option-c="{{ e($attempt->question->option_c) }}"
-                                        data-option-d="{{ e($attempt->question->option_d) }}"
-                                        data-option-e="{{ e($attempt->question->option_e) }}"
+                                        data-question="{{ $attempt->question->question }}"
+                                        data-option-a="{{ $attempt->question->option_a }}"
+                                        data-option-b="{{ $attempt->question->option_b }}"
+                                        data-option-c="{{ $attempt->question->option_c }}"
+                                        data-option-d="{{ $attempt->question->option_d }}"
+                                        data-option-e="{{ $attempt->question->option_e }}"
                                         data-correct="{{ $attempt->question->correct_answer }}"
                                         data-selected="{{ $attempt->selected_answer ?: '' }}">
                                         <td>Question #{{ $attempt->question_number }} <small class="text-muted ms-1"><i class="fas fa-chevron-down" style="font-size:0.75rem"></i></small></td>
@@ -131,7 +131,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script>
         const detail = document.getElementById('question-detail');
         const detailNum = document.getElementById('detail-qnum');
@@ -165,7 +165,7 @@
                 };
 
                 detailNum.textContent = 'Question #' + qnum;
-                detailText.textContent = question;
+                detailText.innerHTML = question;
 
                 let html = '';
                 labels.forEach(lbl => {

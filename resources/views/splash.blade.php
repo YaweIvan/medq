@@ -21,16 +21,26 @@
             animation: fadeIn 0.8s ease-in;
         }
         
-        .mumsa-logo {
-            max-width: 250px;
-            height: auto;
-            margin-bottom: 30px;
-            animation: pulse 2s infinite;
-            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
+        .logo-wrapper {
+            width: 180px;
+            height: 180px;
             border-radius: 50%;
             border: 4px solid #93c5fd;
-            padding: 10px;
             background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: pulse 2s infinite;
+            box-shadow: 0 4px 20px rgba(147,197,253,0.35);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .mumsa-logo {
+            width: 85%;
+            height: 85%;
+            object-fit: contain;
         }
         
         .branding-text {
@@ -87,7 +97,9 @@
 </head>
 <body>
     <div class="splash-container">
-        <img src="{{ $splashLogo ? asset('storage/' . $splashLogo) : asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo">
+        <div class="logo-wrapper">
+            <img src="{{ $splashLogo ? asset('storage/' . $splashLogo) : asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo">
+        </div>
         
         <div class="branding-text">
             {{ $orgName }}

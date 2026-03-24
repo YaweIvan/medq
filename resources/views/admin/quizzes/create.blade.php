@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create New Quiz - MedQ</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fontawesome/css/all.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <style>
         .user-card {
@@ -40,6 +40,11 @@
         
         .user-card .form-check-label {
             cursor: pointer;
+        }
+        
+        /* Preserve exact case for quiz title and subject names */
+        #quizTitle, .subject-name {
+            text-transform: none !important;
         }
         
         .user-list {
@@ -96,10 +101,10 @@
                     <h5 class="mb-3">Quiz Subjects & Questions</h5>
                     <div id="subjectsContainer">
                         <div class="subject-block" data-index="0">
-                            <div class="row">
-                                <div class="col-md-2">
+                            <div class="row g-2 align-items-start">
+                                <div class="col-md-3">
                                     <label class="form-label">Subject Name <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy" required>
+                                    <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy" required autocomplete="off">
                                     <div class="invalid-feedback"></div>
                                 </div>
                                 <div class="col-md-2">
@@ -112,10 +117,9 @@
                                     <input type="number" class="form-control marks-per-question" placeholder="1" value="1" min="1" required>
                                     <div class="invalid-feedback"></div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Max Questions <span class="text-muted">(default: 5)</span></label>
+                                <div class="col-md-1">
+                                    <label class="form-label">Max Qs <span class="text-muted">(def: 5)</span></label>
                                     <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
-                                    <small class="text-muted">Leave empty for all</small>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Questions File <span class="text-danger">*</span></label>
@@ -225,7 +229,15 @@
                     <div class="search-box">
                         <input type="text" id="userSearch" class="form-control" placeholder="Search users by name or email...">
                     </div>
-                    
+
+                    <div class="d-flex align-items-center justify-content-between px-1 py-2 border-bottom mb-2">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="selectAllUsers" onchange="toggleSelectAll(this.checked)">
+                            <label class="form-check-label fw-semibold" for="selectAllUsers">Select All</label>
+                        </div>
+                        <small class="text-muted" id="selectedCount"></small>
+                    </div>
+
                     <div class="user-list" id="userList">
                         <p class="text-center text-muted">Loading users...</p>
                     </div>
@@ -343,6 +355,7 @@
         
         if (filteredUsers.length === 0) {
             userList.innerHTML = '<p class="text-muted text-center">No users match your search</p>';
+            updateSelectAllState();
             return;
         }
         
@@ -364,6 +377,41 @@
                 </div>
             `;
         }).join('');
+        updateSelectAllState();
+    }
+
+    function updateSelectAllState() {
+        const visibleCheckboxes = document.querySelectorAll('#userList .form-check-input');
+        const allChecked = visibleCheckboxes.length > 0 && [...visibleCheckboxes].every(cb => cb.checked);
+        const someChecked = [...visibleCheckboxes].some(cb => cb.checked);
+        const selectAll = document.getElementById('selectAllUsers');
+        if (selectAll) {
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+        }
+        const count = document.getElementById('selectedCount');
+        if (count) count.textContent = selectedUserIds.length + ' selected';
+    }
+
+    function toggleSelectAll(checked) {
+        const visibleCards = document.querySelectorAll('#userList .user-card');
+        visibleCards.forEach(card => {
+            const userId = parseInt(card.dataset.userId);
+            const cb = card.querySelector('.form-check-input');
+            if (checked) {
+                if (!selectedUserIds.includes(userId)) selectedUserIds.push(userId);
+                card.classList.add('assigned');
+                if (cb) cb.checked = true;
+            } else {
+                const idx = selectedUserIds.indexOf(userId);
+                if (idx > -1) selectedUserIds.splice(idx, 1);
+                card.classList.remove('assigned');
+                if (cb) cb.checked = false;
+            }
+        });
+        updateAssignedUsersList();
+        const count = document.getElementById('selectedCount');
+        if (count) count.textContent = selectedUserIds.length + ' selected';
     }
 
     function toggleUser(userId, userName) {
@@ -384,6 +432,7 @@
                 card.classList.remove('assigned');
             }
         }
+        updateSelectAllState();
     }
 
     function updateAssignedUsersList() {
@@ -444,10 +493,10 @@
             <button type="button" class="btn btn-sm btn-outline-danger remove-subject" onclick="removeSubject(this)">
                 <i class="fas fa-trash"></i>
             </button>
-            <div class="row">
-                <div class="col-md-2">
+            <div class="row g-2 align-items-start">
+                <div class="col-md-3">
                     <label class="form-label">Subject Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy" required>
+                    <input type="text" class="form-control subject-name" placeholder="e.g., Anatomy" required autocomplete="off">
                     <div class="invalid-feedback"></div>
                 </div>
                 <div class="col-md-2">
@@ -460,10 +509,9 @@
                     <input type="number" class="form-control marks-per-question" placeholder="1" value="1" min="1" required>
                     <div class="invalid-feedback"></div>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">Max Questions <span class="text-muted">(default: 5)</span></label>
+                <div class="col-md-1">
+                    <label class="form-label">Max Qs <span class="text-muted">(def: 5)</span></label>
                     <input type="number" class="form-control max-questions" placeholder="5" min="1" value="5">
-                    <small class="text-muted">Leave empty for all</small>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Questions File <span class="text-danger">*</span></label>
@@ -661,6 +709,6 @@
     }
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>

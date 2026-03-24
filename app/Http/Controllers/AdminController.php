@@ -34,8 +34,8 @@ class AdminController extends Controller
             ->withCount(['attempts as correct_answers' => function($q) {
                 $q->where('is_correct', true);
             }])
-            ->having('total_attempts', '>', 0)
             ->get()
+            ->filter(fn($u) => $u->total_attempts > 0)
             ->map(function($user) {
                 $user->accuracy = round(($user->correct_answers / $user->total_attempts) * 100, 2);
                 return $user;
@@ -44,7 +44,10 @@ class AdminController extends Controller
             ->take(3)
             ->values();
         
-        return view('admin.dashboard', compact('stats', 'topUsers'));
+        return response()
+            ->view('admin.dashboard', compact('stats', 'topUsers'))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate')
+            ->header('Pragma', 'no-cache');
     }
 
     public function sounds()
@@ -71,8 +74,8 @@ class AdminController extends Controller
     public function updateSettings(Request $request)
     {
         $request->validate([
-            'splash_logo'     => 'nullable|image|mimes:png,jpg,jpeg,gif,svg|max:2048',
-            'welcome_logo'    => 'nullable|image|mimes:png,jpg,jpeg,gif,svg|max:2048',
+            'splash_logo'     => 'nullable|mimes:png,jpg,jpeg,gif,svg,webp|max:2048',
+            'welcome_logo'    => 'nullable|mimes:png,jpg,jpeg,gif,svg,webp|max:2048',
             'org_name'        => 'nullable|string|max:255',
             'org_tagline'     => 'nullable|string|max:255',
             'primary_color'   => 'nullable|regex:/^#[0-9a-fA-F]{6}$/',
@@ -415,56 +418,80 @@ class AdminController extends Controller
     }
     
     /**
-     * Extract formatted text from Excel cell and convert to HTML
-     * This preserves bold text and colors from the Excel file
+     * Extract formatted text from Excel cell and convert to HTML.
+     * Handles both cell-level (uniform) formatting and run-level (RichText) formatting.
      */
     private function extractFormattedText($cell)
     {
         $cellValue = $cell->getValue();
-        
-        // If the cell contains rich text
+
+        // Read cell-level base style (applies when whole cell is uniformly formatted)
+        $baseBold = false;
+        $baseColorCode = null;
+        try {
+            $baseFont = $cell->getWorksheet()->getStyle($cell->getCoordinate())->getFont();
+            $baseBold = (bool) $baseFont->getBold();
+            $baseColor = $baseFont->getColor();
+            if ($baseColor) {
+                $code = $baseColor->getRGB();
+                if ($code && $code !== '000000') {
+                    $baseColorCode = $code;
+                }
+            }
+        } catch (\Exception $e) {
+            // ignore — use defaults (no formatting)
+        }
+
         if ($cellValue instanceof RichText) {
             $html = '';
             foreach ($cellValue->getRichTextElements() as $element) {
-                $text = $element->getText();
-                $font = $element->getFont();
-                
-                if ($font !== null) {
-                    $isBold = $font->getBold();
-                    $color = $font->getColor();
-                    
-                    // Start building HTML
-                    $styles = [];
-                    
-                    // Add color if present
-                    if ($color !== null) {
-                        $colorCode = $color->getRGB();
-                        if ($colorCode && $colorCode !== '000000') {  // Skip black text
-                            $styles[] = "color: #{$colorCode}";
-                        }
-                    }
-                    
-                    // Build the styled text
-                    if ($isBold && !empty($styles)) {
-                        $styleAttr = ' style="' . implode('; ', $styles) . '"';
-                        $html .= "<strong{$styleAttr}>" . htmlspecialchars($text) . "</strong>";
-                    } elseif ($isBold) {
-                        $html .= "<strong>" . htmlspecialchars($text) . "</strong>";
-                    } elseif (!empty($styles)) {
-                        $styleAttr = ' style="' . implode('; ', $styles) . '"';
-                        $html .= "<span{$styleAttr}>" . htmlspecialchars($text) . "</span>";
+                $text = htmlspecialchars($element->getText());
+                // getFont() only exists on Run elements, not plain TextElement
+                $font = ($element instanceof \PhpOffice\PhpSpreadsheet\RichText\Run)
+                    ? $element->getFont()
+                    : null;
+
+                // Run-level bold: use run value if explicitly set, else fall back to cell base
+                $isBold = ($font !== null && $font->getBold() !== null)
+                    ? (bool) $font->getBold()
+                    : $baseBold;
+
+                // Run-level color: use run value if set and non-black, else fall back to cell base
+                $colorCode = null;
+                if ($font !== null && $font->getColor() !== null) {
+                    $code = $font->getColor()->getRGB();
+                    if ($code && $code !== '000000') {
+                        $colorCode = $code;
                     } else {
-                        $html .= htmlspecialchars($text);
+                        $colorCode = $baseColorCode;
                     }
                 } else {
-                    $html .= htmlspecialchars($text);
+                    $colorCode = $baseColorCode;
+                }
+
+                if ($isBold && $colorCode) {
+                    $html .= '<strong style="color: #' . $colorCode . '">' . $text . '</strong>';
+                } elseif ($isBold) {
+                    $html .= '<strong>' . $text . '</strong>';
+                } elseif ($colorCode) {
+                    $html .= '<span style="color: #' . $colorCode . '">' . $text . '</span>';
+                } else {
+                    $html .= $text;
                 }
             }
             return $html;
         }
-        
-        // Regular text without formatting
-        return htmlspecialchars((string)$cellValue);
+
+        // Plain (non-RichText) cell — apply cell-level formatting
+        $text = htmlspecialchars((string) $cellValue);
+        if ($baseBold && $baseColorCode) {
+            return '<strong style="color: #' . $baseColorCode . '">' . $text . '</strong>';
+        } elseif ($baseBold) {
+            return '<strong>' . $text . '</strong>';
+        } elseif ($baseColorCode) {
+            return '<span style="color: #' . $baseColorCode . '">' . $text . '</span>';
+        }
+        return $text;
     }
     
     /**
@@ -948,8 +975,45 @@ class AdminController extends Controller
 
     public function deleteQuiz($id)
     {
-        Quiz::findOrFail($id)->delete();
+        $quiz = Quiz::findOrFail($id);
+
+        // Explicitly delete all attempts for this quiz's questions
+        $questionIds = Question::where('quiz_id', $id)->pluck('id');
+        QuizAttempt::whereIn('question_id', $questionIds)->delete();
+        QuizAttempt::where('quiz_id', $id)->delete();
+
+        // Delete all questions for this quiz
+        Question::where('quiz_id', $id)->delete();
+
+        // Delete the quiz (also handles quiz_user pivot via cascade)
+        $quiz->delete();
+
         return back()->with('success', 'Quiz deleted successfully.');
+    }
+
+    public function dashboardStatsApi()
+    {
+        $total_questions   = Question::count();
+        $total_quizzes     = Quiz::count();
+        $total_users       = User::where('role', 'quizzer')->count();
+        $pending_approvals = User::where('is_approved', false)->count();
+
+        $top3 = User::where('role', 'quizzer')
+            ->withCount(['attempts as total_attempts'])
+            ->withCount(['attempts as correct_answers' => fn($q) => $q->where('is_correct', true)])
+            ->get()
+            ->filter(fn($u) => $u->total_attempts > 0)
+            ->map(fn($u) => [
+                'name'     => $u->name,
+                'accuracy' => round(($u->correct_answers / $u->total_attempts) * 100),
+            ])
+            ->sortByDesc('accuracy')
+            ->take(3)
+            ->values();
+
+        return response()->json(compact(
+            'total_questions', 'total_quizzes', 'total_users', 'pending_approvals', 'top3'
+        ))->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
     
     public function toggleQuizStatus($id)

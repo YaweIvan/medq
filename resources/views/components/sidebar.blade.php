@@ -47,10 +47,6 @@
             <i class="fas fa-volume-up"></i>
             Sounds
         </a>
-        <a href="{{ route('admin.settings') }}" class="{{ request()->routeIs('admin.settings') ? 'active' : '' }}">
-            <i class="fas fa-cog"></i>
-            Settings
-        </a>
     </div>
 </div>
 
