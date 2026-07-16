@@ -1,10 +1,10 @@
 <div class="sidebar">
     <div class="sidebar-section">
-        <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+        <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard*') ? 'active' : '' }}">
             <i class="fas fa-tachometer-alt"></i>
             Dashboard
         </a>
-        <a href="{{ route('admin.approvals') }}" class="{{ request()->routeIs('admin.approvals') ? 'active' : '' }}">
+        <a href="{{ route('admin.approvals') }}" class="{{ request()->routeIs('admin.approvals*') || request()->routeIs('admin.users*') ? 'active' : '' }}">
             <i class="fas fa-user-check"></i>
             User Approvals
         </a>
@@ -14,7 +14,7 @@
     
     <div class="sidebar-section">
         <div class="sidebar-title">Quiz Management</div>
-        <a href="{{ route('admin.quizzes.index') }}" class="{{ request()->routeIs('admin.quizzes.index') ? 'active' : '' }}">
+        <a href="{{ route('admin.quizzes.index') }}" class="{{ request()->routeIs('admin.quizzes.*') || request()->routeIs('admin.quiz.*') ? 'active' : '' }}">
             <i class="fas fa-list"></i>
             All Quizzes
         </a>
@@ -31,19 +31,29 @@
     <hr>
     
     <div class="sidebar-section">
-        <a href="{{ route('admin.statistics') }}" class="{{ request()->routeIs('admin.statistics') ? 'active' : '' }}">
+        <div class="sidebar-title">Subjects</div>
+        <a href="{{ route('admin.subjects.index') }}" class="{{ request()->routeIs('admin.subjects.*') ? 'active' : '' }}">
+            <i class="fas fa-book-open"></i>
+            Manage Subjects
+        </a>
+    </div>
+    
+    <hr>
+    
+    <div class="sidebar-section">
+        <a href="{{ route('admin.statistics') }}" class="{{ request()->routeIs('admin.statistics*') || request()->routeIs('admin.*analysis*') || request()->routeIs('admin.*review*') ? 'active' : '' }}">
             <i class="fas fa-chart-bar"></i>
             Statistics
         </a>
-        <a href="{{ route('admin.leaderboard') }}" class="{{ request()->routeIs('admin.leaderboard') || request()->routeIs('admin.quiz.leaderboard') || request()->routeIs('admin.student.quiz.details') ? 'active' : '' }}">
+        <a href="{{ route('admin.leaderboard') }}" class="{{ request()->routeIs('admin.leaderboard*') || request()->routeIs('admin.quiz.leaderboard*') || request()->routeIs('admin.student.quiz.details*') ? 'active' : '' }}">
             <i class="fas fa-trophy"></i>
             Leaderboard
         </a>
-        <a href="{{ route('admin.tutorial') }}" class="{{ request()->routeIs('admin.tutorial') ? 'active' : '' }}">
+        <a href="{{ route('admin.tutorial') }}" class="{{ request()->routeIs('admin.tutorial*') ? 'active' : '' }}">
             <i class="fas fa-book"></i>
             Tutorial
         </a>
-        <a href="{{ route('admin.sounds') }}" class="{{ request()->routeIs('admin.sounds') ? 'active' : '' }}">
+        <a href="{{ route('admin.sounds') }}" class="{{ request()->routeIs('admin.sounds*') ? 'active' : '' }}">
             <i class="fas fa-volume-up"></i>
             Sounds
         </a>

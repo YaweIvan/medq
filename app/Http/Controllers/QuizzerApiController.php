@@ -9,7 +9,7 @@ class QuizzerApiController extends Controller
 {
     public function checkQuizUpdates()
     {
-        $user = Auth::user();
+        $user = Auth::user()->fresh(); // Get fresh user data
         $activeQuizzes = $user->quizzes()
             ->where('is_active', true)
             ->select('id', 'title', 'description', 'updated_at')

@@ -236,6 +236,22 @@
                     </div>
                 </div>
 
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="globalLockToggle"
+                               {{ $quiz->lock_mode === 'global' ? 'checked' : '' }}>
+                        <label class="form-check-label fw-semibold" for="globalLockToggle">
+                            Global Question Locking
+                        </label>
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        When enabled, once any student answers or times out on a question, that question locks
+                        for <strong>all</strong> students in this quiz. When disabled (default), each student's
+                        progress is independent.
+                        <span class="text-warning fw-semibold">Changes apply from now on, not retroactively.</span>
+                    </small>
+                </div>
+
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Update Quiz
@@ -526,6 +542,7 @@
         formData.append('_method', 'PUT');
         formData.append('title', document.getElementById('quizTitle').value);
         formData.append('is_active', document.getElementById('isActive').checked ? '1' : '0');
+        formData.append('lock_mode', document.getElementById('globalLockToggle').checked ? 'global' : 'per_user');
         
         try {
             const response = await fetch('{{ route("admin.quizzes.update", $quiz->id) }}', {

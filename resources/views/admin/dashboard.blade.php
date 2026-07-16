@@ -28,25 +28,37 @@
         <!-- Stats Cards -->
         <div class="stats-grid-compact">
             <a href="{{ route('admin.approvals') }}" class="stat-card-compact primary">
-                <h6>Total Users</h6>
-                <div class="stat-value-compact" id="stat-total-users">{{ $stats['total_users'] }}</div>
+                <h6>Total Quizzers</h6>
+                <div class="stat-value-compact" id="stat-total-quizzers">{{ $stats['total_quizzers'] }}</div>
             </a>
-            <a href="{{ route('admin.quizzes.index') }}" class="stat-card-compact success">
+            <a href="{{ route('admin.approvals') }}" class="stat-card-compact success">
+                <h6>Approved Quizzers</h6>
+                <div class="stat-value-compact" id="stat-approved-quizzers">{{ $stats['approved_quizzers'] }}</div>
+            </a>
+            <a href="{{ route('admin.approvals') }}" class="stat-card-compact warning">
+                <h6>Pending Quizzers</h6>
+                <div class="stat-value-compact" id="stat-pending-quizzers">{{ $stats['pending_quizzers'] }}</div>
+            </a>
+            <a href="{{ route('admin.quizzes.index') }}" class="stat-card-compact info">
                 <h6>Total Quizzes</h6>
                 <div class="stat-value-compact" id="stat-total-quizzes">{{ $stats['total_quizzes'] }}</div>
             </a>
-            <a href="{{ route('admin.approvals') }}" class="stat-card-compact warning">
-                <h6>Pending Approvals</h6>
-                <div class="stat-value-compact" id="stat-pending-approvals">{{ $stats['pending_approvals'] }}</div>
-            </a>
+            <div class="stat-card-compact secondary">
+                <h6>Total Subjects</h6>
+                <div class="stat-value-compact" id="stat-total-subjects">{{ $stats['total_subjects'] }}</div>
+            </div>
             <div class="stat-card-compact info">
                 <h6>Total Questions</h6>
                 <div class="stat-value-compact" id="stat-total-questions">{{ $stats['total_questions'] }}</div>
             </div>
+            <div class="stat-card-compact success">
+                <h6>Total Attempts</h6>
+                <div class="stat-value-compact" id="stat-total-attempts">{{ $stats['total_attempts'] }}</div>
+            </div>
             <a href="{{ route('admin.leaderboard') }}" class="stat-card-compact info">
-                <h6>Leaderboard Top 3</h6>
+                <h6>Top Performers</h6>
                 <ul class="leaderboard-list-compact" id="stat-leaderboard">
-                    @forelse($topUsers as $index => $user)
+                    @forelse($stats['top_performers'] as $index => $user)
                         <li><span class="rank">{{ $index + 1 }}</span> {{ $user->name }} <strong>{{ number_format($user->accuracy, 0) }}%</strong></li>
                     @empty
                         <li class="text-muted">No quiz attempts yet</li>
@@ -54,6 +66,13 @@
                 </ul>
             </a>
         </div>
+        
+        <!-- Cache Info -->
+        @if(isset($stats['cache_timestamp']))
+        <div class="alert alert-info mt-3">
+            <small><i class="fas fa-clock"></i> Statistics cached at: {{ $stats['cache_timestamp'] }} (refreshes every 60 seconds)</small>
+        </div>
+        @endif
 
         <!-- Quick Actions -->
         <h2 class="section-title">

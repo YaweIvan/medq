@@ -13,17 +13,30 @@ class StatisticsApiController extends Controller
 {
     public function quizStats()
     {
-        $stats = Quiz::with('attempts')
+        // 6.3 — aggregation query instead of loading all attempts into memory
+        $stats = DB::table('quizzes')
+            ->leftJoin('quiz_attempts', function($join) {
+                $join->on('quiz_attempts.quiz_id', '=', 'quizzes.id')
+                     ->whereNotNull('quiz_attempts.submitted_at');
+            })
+            ->select(
+                'quizzes.id as quiz_id',
+                'quizzes.title as quiz',
+                DB::raw('COUNT(quiz_attempts.id) as total_attempts'),
+                DB::raw('SUM(CASE WHEN quiz_attempts.is_correct = 1 THEN 1 ELSE 0 END) as correct'),
+                DB::raw('SUM(CASE WHEN quiz_attempts.is_correct = 0 AND quiz_attempts.id IS NOT NULL THEN 1 ELSE 0 END) as incorrect')
+            )
+            ->groupBy('quizzes.id', 'quizzes.title')
             ->get()
-            ->map(function($quiz) {
-                $attempts = $quiz->attempts;
+            ->map(function($row) {
                 return [
-                    'quiz' => $quiz->title,
-                    'quiz_id' => $quiz->id,
-                    'total_attempts' => $attempts->count(),
-                    'correct' => $attempts->where('is_correct', true)->count(),
-                    'incorrect' => $attempts->where('is_correct', false)->count(),
-                    'accuracy' => $attempts->count() > 0 ? round(($attempts->where('is_correct', true)->count() / $attempts->count()) * 100, 2) : 0
+                    'quiz'           => $row->quiz,
+                    'quiz_id'        => $row->quiz_id,
+                    'total_attempts' => (int) $row->total_attempts,
+                    'correct'        => (int) $row->correct,
+                    'incorrect'      => (int) $row->incorrect,
+                    'accuracy'       => $row->total_attempts > 0
+                        ? round(($row->correct / $row->total_attempts) * 100, 2) : 0,
                 ];
             })
             ->sortByDesc('accuracy')
@@ -168,103 +181,100 @@ class StatisticsApiController extends Controller
 
     public function userRankingsPerQuiz($userId)
     {
-        $userQuizzes = DB::table('quiz_user')
+        $userQuizIds = DB::table('quiz_user')
             ->where('user_id', $userId)
             ->pluck('quiz_id');
 
+        if ($userQuizIds->isEmpty()) {
+            return response()->json([]);
+        }
+
+        // 6.3 — bulk-load all quizzes in one query
+        $quizzesById = Quiz::whereIn('id', $userQuizIds)->get()->keyBy('id');
+
+        // 6.3 — bulk-load subjects for all relevant quizzes
+        $subjectsByQuiz = Subject::whereHas('questions', function($q) use ($userQuizIds) {
+            $q->whereIn('quiz_id', $userQuizIds);
+        })->get()->groupBy(function($s) use ($userQuizIds) {
+            // We need quiz_id context — fetch via questions
+            return null; // will re-query per quiz below (subjects are shared across quizzes)
+        });
+
+        // 6.3 — single aggregation query for all quiz attempts across all quizzes
+        $allCorrects = DB::table('quiz_attempts')
+            ->join('questions', 'quiz_attempts.question_id', '=', 'questions.id')
+            ->whereIn('quiz_attempts.quiz_id', $userQuizIds)
+            ->whereNotNull('quiz_attempts.submitted_at')
+            ->select(
+                'quiz_attempts.quiz_id',
+                'quiz_attempts.user_id',
+                'questions.subject_id',
+                DB::raw('SUM(quiz_attempts.is_correct) as correct_count')
+            )
+            ->groupBy('quiz_attempts.quiz_id', 'quiz_attempts.user_id', 'questions.subject_id')
+            ->get()
+            ->groupBy('quiz_id');
+
+        // 6.3 — bulk last-attempt timestamps
+        $lastAttempts = DB::table('quiz_attempts')
+            ->whereIn('quiz_id', $userQuizIds)
+            ->whereNotNull('submitted_at')
+            ->select('quiz_id', 'user_id', DB::raw('MAX(submitted_at) as last_at'))
+            ->groupBy('quiz_id', 'user_id')
+            ->get()
+            ->groupBy('quiz_id')
+            ->map(fn($rows) => $rows->pluck('last_at', 'user_id'));
+
         $rankings = [];
 
-        foreach ($userQuizzes as $quizId) {
-            $quiz = Quiz::find($quizId);
+        foreach ($userQuizIds as $quizId) {
+            $quiz = $quizzesById->get($quizId);
             if (!$quiz) continue;
 
-            // Get subjects for this quiz with marks and max_questions
-            $subjects = Subject::whereHas('questions', function($query) use ($quizId) {
-                $query->where('quiz_id', $quizId);
-            })->get();
-
+            $subjects = Subject::whereHas('questions', fn($q) => $q->where('quiz_id', $quizId))->get();
             if ($subjects->isEmpty()) continue;
 
-            // Total max points = sum(max_questions × marks_per_question)
-            $totalMaxPoints = 0;
-            foreach ($subjects as $subject) {
-                $totalMaxPoints += ($subject->max_questions ?? 5) * ($subject->marks_per_question ?? 1);
-            }
+            $totalMaxPoints = $subjects->sum(fn($s) => ($s->max_questions ?? 5) * ($s->marks_per_question ?? 1));
+            $subjectMarks   = $subjects->keyBy('id')->map(fn($s) => $s->marks_per_question ?? 1);
 
-            // Fetch per-user, per-subject correct counts in one query
-            $subjectCorrects = DB::table('quiz_attempts')
-                ->join('questions', 'quiz_attempts.question_id', '=', 'questions.id')
-                ->where('quiz_attempts.quiz_id', $quizId)
-                ->whereIn('questions.subject_id', $subjects->pluck('id'))
-                ->select('quiz_attempts.user_id', 'questions.subject_id',
-                    DB::raw('SUM(quiz_attempts.is_correct) as correct_count'))
-                ->groupBy('quiz_attempts.user_id', 'questions.subject_id')
-                ->get()
-                ->groupBy('user_id');
+            $quizCorrects = $allCorrects->get($quizId, collect())->groupBy('user_id');
+            if ($quizCorrects->isEmpty()) continue;
 
-            if ($subjectCorrects->isEmpty()) continue;
-
-            $subjectMarks = $subjects->keyBy('id')->map(fn($s) => $s->marks_per_question ?? 1);
-
-            // Compute weighted points for every user
             $allUsersData = [];
-            foreach ($subjectCorrects as $uid => $rows) {
-                $points = 0;
-                foreach ($rows as $row) {
-                    $marks   = $subjectMarks[$row->subject_id] ?? 1;
-                    $points += (int)$row->correct_count * $marks;
-                }
-                $accuracy = $totalMaxPoints > 0 ? round(($points / $totalMaxPoints) * 100, 2) : 0;
+            foreach ($quizCorrects as $uid => $rows) {
+                $points = $rows->sum(fn($r) => (int)$r->correct_count * ($subjectMarks[$r->subject_id] ?? 1));
                 $allUsersData[] = [
                     'id'       => $uid,
                     'points'   => $points,
-                    'correct'  => $points,           // alias kept for frontend compat
-                    'total'    => $totalMaxPoints,
-                    'accuracy' => $accuracy,
+                    'accuracy' => $totalMaxPoints > 0 ? round(($points / $totalMaxPoints) * 100, 2) : 0,
                 ];
             }
 
-            // Sort by points desc, then accuracy desc
-            usort($allUsersData, function($a, $b) {
-                if ($a['points'] == $b['points']) {
-                    return $b['accuracy'] <=> $a['accuracy'];
-                }
-                return $b['points'] <=> $a['points'];
-            });
-            
-            $allUsers = array_values($allUsersData);
+            usort($allUsersData, fn($a, $b) =>
+                $b['points'] !== $a['points'] ? $b['points'] <=> $a['points'] : $b['accuracy'] <=> $a['accuracy']
+            );
 
-            $rank = null;
-            $userStats = null;
-
-            foreach ($allUsers as $index => $user) {
-                if ($user['id'] == $userId) {
-                    $rank = $index + 1;
-                    $userStats = $user;
-                    break;
-                }
+            $rank = null; $userStats = null;
+            foreach ($allUsersData as $i => $u) {
+                if ($u['id'] == $userId) { $rank = $i + 1; $userStats = $u; break; }
             }
+            if (!$rank) continue;
 
-            if ($rank) {
-                // Get the last attempt date for this user and quiz
-                $lastAttempt = QuizAttempt::where('quiz_id', $quizId)
-                    ->where('user_id', $userId)
-                    ->latest('created_at')
-                    ->first();
-                
-                $rankings[] = [
-                    'quiz'             => $quiz->title,
-                    'quiz_id'          => $quizId,
-                    'rank'             => $rank,
-                    'points'           => $userStats['points'],
-                    'total_max_points' => $totalMaxPoints,
-                    'correct'          => $userStats['points'],       // alias for chart compat
-                    'total'            => $totalMaxPoints,             // alias for chart compat
-                    'accuracy'         => $userStats['accuracy'],
-                    'last_attempt_date' => $lastAttempt ? $lastAttempt->created_at->format('M j, Y') : 'N/A',
-                    'last_attempt_time' => $lastAttempt ? $lastAttempt->created_at->format('g:i A') : '',
-                ];
-            }
+            $lastAt = $lastAttempts->get($quizId, collect())->get($userId);
+            $lastCarbon = $lastAt ? \Carbon\Carbon::parse($lastAt) : null;
+
+            $rankings[] = [
+                'quiz'              => $quiz->title,
+                'quiz_id'           => $quizId,
+                'rank'              => $rank,
+                'points'            => $userStats['points'],
+                'total_max_points'  => $totalMaxPoints,
+                'correct'           => $userStats['points'],
+                'total'             => $totalMaxPoints,
+                'accuracy'          => $userStats['accuracy'],
+                'last_attempt_date' => $lastCarbon ? $lastCarbon->format('M j, Y') : 'N/A',
+                'last_attempt_time' => $lastCarbon ? $lastCarbon->format('g:i A') : '',
+            ];
         }
 
         return response()->json($rankings);

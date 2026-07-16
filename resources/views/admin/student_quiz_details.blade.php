@@ -48,11 +48,24 @@
                     <div class="card">
                         <div class="card-body text-center">
                             <i class="fas fa-times-circle fa-2x text-danger mb-2"></i>
-                            <h3 class="mb-0">{{ $stats['failed'] }}</h3>
-                            <small class="text-muted">Failed Answers</small>
+                            <h3 class="mb-0">{{ $stats['incorrect'] }}</h3>
+                            <small class="text-muted">Incorrect Answers</small>
                         </div>
                     </div>
                 </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                            <h3 class="mb-0">{{ $stats['unanswered'] }}</h3>
+                            <small class="text-muted">Timed Out / Unanswered</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Accuracy row -->
+            <div class="row g-4 mb-4">
                 <div class="col-lg-3 col-md-6">
                     <div class="card">
                         <div class="card-body text-center">
@@ -67,144 +80,59 @@
             <!-- Questions Display -->
             <div class="row g-4">
                 <!-- Passed Questions -->
-                <div class="col-lg-6">
+                <div class="col-lg-4">
                     <div class="card border-success">
                         <div class="card-header bg-success text-white">
-                            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Passed Questions ({{ $stats['correct'] }})</h5>
+                            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Correct ({{ $stats['correct'] }})</h5>
                         </div>
                         <div class="card-body">
                             @php $passedQuestions = $attempts->where('is_correct', true); @endphp
                             @if($passedQuestions->count() > 0)
-                                @foreach($passedQuestions as $index => $attempt)
+                                @foreach($passedQuestions as $attempt)
                                     @if($attempt->question)
                                     <div class="card mb-3 border-success">
                                         <div class="card-body bg-success bg-opacity-10">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <span class="badge bg-secondary">{{ $attempt->question->subject->name ?? 'N/A' }}</span>
                                                 <small class="text-muted">
-                                                    <i class="fas fa-calendar me-1"></i>{{ $attempt->created_at->format('M j, Y') }}
-                                                    <i class="fas fa-clock ms-2 me-1"></i>{{ $attempt->created_at->format('g:i A') }}
+                                                    <i class="fas fa-calendar me-1"></i>{{ $attempt->submitted_at ? \Carbon\Carbon::parse($attempt->submitted_at)->format('M j, Y') : '' }}
                                                 </small>
                                             </div>
                                             <h6 class="fw-bold mb-3">{!! $attempt->question->question !!}</h6>
-                                            <div class="options">
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'A' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>A:</strong> {!! $attempt->question->option_a !!}
-                                                    @if($attempt->selected_answer == 'A')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'B' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>B:</strong> {!! $attempt->question->option_b !!}
-                                                    @if($attempt->selected_answer == 'B')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'C' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>C:</strong> {!! $attempt->question->option_c !!}
-                                                    @if($attempt->selected_answer == 'C')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'D' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>D:</strong> {!! $attempt->question->option_d !!}
-                                                    @if($attempt->selected_answer == 'D')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                @if($attempt->question->option_e)
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'E' ? 'bg-success text-white' : 'bg-light' }}">
-                                                    <strong>E:</strong> {!! $attempt->question->option_e !!}
-                                                    @if($attempt->selected_answer == 'E')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                @endif
-                                            </div>
                                             <div class="mt-2">
-                                                <small class="text-muted">Selected Answer: <strong class="text-success">{{ $attempt->selected_answer }}</strong></small>
+                                                <small class="text-muted">Selected: <strong class="text-success">{{ $attempt->selected_answer }}</strong></small>
                                             </div>
                                         </div>
                                     </div>
                                     @endif
                                 @endforeach
                             @else
-                                <p class="text-center text-muted py-4">No passed questions</p>
+                                <p class="text-center text-muted py-4">No correct answers</p>
                             @endif
                         </div>
                     </div>
                 </div>
 
-                <!-- Failed Questions -->
-                <div class="col-lg-6">
+                <!-- Incorrect Questions -->
+                <div class="col-lg-4">
                     <div class="card border-danger">
                         <div class="card-header bg-danger text-white">
-                            <h5 class="mb-0"><i class="fas fa-times-circle me-2"></i>Failed Questions ({{ $stats['failed'] }})</h5>
+                            <h5 class="mb-0"><i class="fas fa-times-circle me-2"></i>Incorrect ({{ $stats['incorrect'] }})</h5>
                         </div>
                         <div class="card-body">
-                            @php $failedQuestions = $attempts->where('is_correct', false); @endphp
-                            @if($failedQuestions->count() > 0)
-                                @foreach($failedQuestions as $index => $attempt)
+                            @php $incorrectQuestions = $attempts->where('is_correct', false)->where('is_auto_expired', false); @endphp
+                            @if($incorrectQuestions->count() > 0)
+                                @foreach($incorrectQuestions as $attempt)
                                     @if($attempt->question)
                                     <div class="card mb-3 border-danger">
                                         <div class="card-body bg-danger bg-opacity-10">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <span class="badge bg-secondary">{{ $attempt->question->subject->name ?? 'N/A' }}</span>
                                                 <small class="text-muted">
-                                                    <i class="fas fa-calendar me-1"></i>{{ $attempt->created_at->format('M j, Y') }}
-                                                    <i class="fas fa-clock ms-2 me-1"></i>{{ $attempt->created_at->format('g:i A') }}
+                                                    <i class="fas fa-calendar me-1"></i>{{ $attempt->submitted_at ? \Carbon\Carbon::parse($attempt->submitted_at)->format('M j, Y') : '' }}
                                                 </small>
                                             </div>
                                             <h6 class="fw-bold mb-3">{!! $attempt->question->question !!}</h6>
-                                            <div class="options">
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'A' ? 'bg-success text-white' : ($attempt->selected_answer == 'A' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>A:</strong> {!! $attempt->question->option_a !!}
-                                                    @if($attempt->selected_answer == 'A')
-                                                        <i class="fas fa-times-circle float-end"></i>
-                                                    @endif
-                                                    @if($attempt->question->correct_answer == 'A')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'B' ? 'bg-success text-white' : ($attempt->selected_answer == 'B' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>B:</strong> {!! $attempt->question->option_b !!}
-                                                    @if($attempt->selected_answer == 'B')
-                                                        <i class="fas fa-times-circle float-end"></i>
-                                                    @endif
-                                                    @if($attempt->question->correct_answer == 'B')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'C' ? 'bg-success text-white' : ($attempt->selected_answer == 'C' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>C:</strong> {!! $attempt->question->option_c !!}
-                                                    @if($attempt->selected_answer == 'C')
-                                                        <i class="fas fa-times-circle float-end"></i>
-                                                    @endif
-                                                    @if($attempt->question->correct_answer == 'C')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'D' ? 'bg-success text-white' : ($attempt->selected_answer == 'D' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>D:</strong> {!! $attempt->question->option_d !!}
-                                                    @if($attempt->selected_answer == 'D')
-                                                        <i class="fas fa-times-circle float-end"></i>
-                                                    @endif
-                                                    @if($attempt->question->correct_answer == 'D')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                @if($attempt->question->option_e)
-                                                <div class="option mb-2 p-2 rounded {{ $attempt->question->correct_answer == 'E' ? 'bg-success text-white' : ($attempt->selected_answer == 'E' ? 'bg-danger text-white' : 'bg-light') }}">
-                                                    <strong>E:</strong> {!! $attempt->question->option_e !!}
-                                                    @if($attempt->selected_answer == 'E')
-                                                        <i class="fas fa-times-circle float-end"></i>
-                                                    @endif
-                                                    @if($attempt->question->correct_answer == 'E')
-                                                        <i class="fas fa-check-circle float-end"></i>
-                                                    @endif
-                                                </div>
-                                                @endif
-                                            </div>
                                             <div class="mt-2">
                                                 <small class="text-muted">Selected: <strong class="text-danger">{{ $attempt->selected_answer }}</strong> | Correct: <strong class="text-success">{{ $attempt->question->correct_answer }}</strong></small>
                                             </div>
@@ -213,7 +141,39 @@
                                     @endif
                                 @endforeach
                             @else
-                                <p class="text-center text-muted py-4">No failed questions</p>
+                                <p class="text-center text-muted py-4">No incorrect answers</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unanswered / Timed Out -->
+                <div class="col-lg-4">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Timed Out / Unanswered ({{ $stats['unanswered'] }})</h5>
+                        </div>
+                        <div class="card-body">
+                            @php $unansweredQuestions = $attempts->where('is_correct', false)->where('is_auto_expired', true); @endphp
+                            @if($unansweredQuestions->count() > 0)
+                                @foreach($unansweredQuestions as $attempt)
+                                    @if($attempt->question)
+                                    <div class="card mb-3 border-warning">
+                                        <div class="card-body bg-warning bg-opacity-10">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <span class="badge bg-secondary">{{ $attempt->question->subject->name ?? 'N/A' }}</span>
+                                                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Timed Out</span>
+                                            </div>
+                                            <h6 class="fw-bold mb-3">{!! $attempt->question->question !!}</h6>
+                                            <div class="mt-2">
+                                                <small class="text-muted">Correct answer was: <strong class="text-success">{{ $attempt->question->correct_answer }}</strong></small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                @endforeach
+                            @else
+                                <p class="text-center text-muted py-4">No timed-out questions</p>
                             @endif
                         </div>
                     </div>
