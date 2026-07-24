@@ -151,23 +151,23 @@
                                 <i class="fas fa-download"></i> Download Sample Template
                             </a>
                         </div>
-                        <p class="mb-2 fw-bold">Your file MUST have 7 or 8 columns in this order:</p>
+                        <p class="mb-2 fw-bold">Your file MUST have 8 or 9 columns in this order:</p>
                         <div class="table-responsive">
                             <table class="table table-sm table-bordered bg-white mb-2">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>Column A</th><th>Column B</th><th>Column C</th><th>Column D</th><th>Column E</th><th>Column F</th><th>Column G</th><th>Column H</th>
+                                        <th>Column A</th><th>Column B</th><th>Column C</th><th>Column D</th><th>Column E</th><th>Column F</th><th>Column G</th><th>Column H</th><th>Column I</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr class="fw-bold bg-light">
-                                        <td>Number</td><td>Question</td><td>Option A</td><td>Option B</td><td>Option C</td><td>Option D</td><td>Option E</td><td>Answer</td>
+                                        <td>Number</td><td>Question</td><td>Diagram</td><td>Option A</td><td>Option B</td><td>Option C</td><td>Option D</td><td>Option E</td><td>Answer</td>
                                     </tr>
                                     <tr>
-                                        <td>1</td><td>What is the normal heart rate?</td><td>60-100 bpm</td><td>40-60 bpm</td><td>100-120 bpm</td><td>120-140 bpm</td><td><em>(leave empty)</em></td><td>A</td>
+                                        <td>1</td><td>What is the normal heart rate?</td><td><em>(paste image)</em></td><td>60-100 bpm</td><td>40-60 bpm</td><td>100-120 bpm</td><td>120-140 bpm</td><td><em>(empty)</em></td><td>A</td>
                                     </tr>
                                     <tr>
-                                        <td>2</td><td>Which organ produces insulin?</td><td>Liver</td><td>Pancreas</td><td>Kidney</td><td>Spleen</td><td>Heart</td><td>B</td>
+                                        <td>2</td><td>Which organ produces insulin?</td><td><em>(paste image)</em></td><td>Liver</td><td>Pancreas</td><td>Kidney</td><td>Spleen</td><td>Heart</td><td>B</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -176,9 +176,10 @@
                             <div class="col-md-6">
                                 <strong class="text-success">✓ REQUIRED:</strong>
                                 <ul class="small mb-0">
-                                    <li>7 or 8 columns (A to G or A to H)</li>
+                                    <li>8 or 9 columns (A to H or A to I)</li>
                                     <li>First row = headers</li>
                                     <li>Answer column: A, B, C, D, or E</li>
+                                    <li>Diagram column: Paste images or leave empty</li>
                                     <li>Option E is optional (can be empty)</li>
                                     <li>File format: .xlsx or .csv</li>
                                 </ul>
@@ -186,11 +187,12 @@
                             <div class="col-md-6">
                                 <strong class="text-danger">✗ AVOID:</strong>
                                 <ul class="small mb-0">
-                                    <li>More than 8 columns</li>
+                                    <li>More than 9 columns</li>
                                     <li>Empty rows between questions</li>
                                     <li>Numbers/symbols in Answer column</li>
-                                    <li>Merged cells or formatting</li>
+                                    <li>Merged cells</li>
                                     <li>Answer E without Option E text</li>
+                                    <li>Large images (max 2MB recommended)</li>
                                 </ul>
                             </div>
                         </div>

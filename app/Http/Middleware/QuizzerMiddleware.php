@@ -18,10 +18,10 @@ class QuizzerMiddleware
         // Get fresh user data from database every request
         $user = Auth::user()->fresh();
         
-        // Only check role and approval - never logout, just block access
+        // Only check role and approval - never logout, redirect to dashboard with message
         if (!$user || !$user->isQuizzer() || !$user->is_approved) {
-            // DO NOT logout - just deny access
-            abort(403, 'Access denied. Please contact administrator.');
+            // DO NOT logout - redirect to quizzer dashboard with message
+            return redirect()->route('quizzer.dashboard')->with('warning', 'Your access has been updated. Please check your assigned quizzes.');
         }
 
         return $next($request);

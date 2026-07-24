@@ -9,6 +9,8 @@ use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\QuizSound;
 use App\Models\Setting;
+use App\Services\DashboardStatisticsService;
+use App\Services\QuestionAttemptResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,33 +21,19 @@ use PhpOffice\PhpSpreadsheet\RichText\RichText;
 
 class AdminController extends Controller
 {
+    protected $dashboardStats;
+
+    public function __construct(DashboardStatisticsService $dashboardStats)
+    {
+        $this->dashboardStats = $dashboardStats;
+    }
+
     public function dashboard()
     {
-        $stats = [
-            'total_quizzes' => Quiz::count(),
-            'total_users' => User::where('role', 'quizzer')->count(),
-            'pending_approvals' => User::where('is_approved', false)->count(),
-            'total_questions' => Question::count(),
-        ];
-        
-        // Get top 3 users by correct answers across all quizzes
-        $topUsers = User::where('role', 'quizzer')
-            ->withCount(['attempts as total_attempts'])
-            ->withCount(['attempts as correct_answers' => function($q) {
-                $q->where('is_correct', true);
-            }])
-            ->get()
-            ->filter(fn($u) => $u->total_attempts > 0)
-            ->map(function($user) {
-                $user->accuracy = round(($user->correct_answers / $user->total_attempts) * 100, 2);
-                return $user;
-            })
-            ->sortByDesc('accuracy')
-            ->take(3)
-            ->values();
+        $stats = $this->dashboardStats->getStatistics();
         
         return response()
-            ->view('admin.dashboard', compact('stats', 'topUsers'))
+            ->view('admin.dashboard', compact('stats'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate')
             ->header('Pragma', 'no-cache');
     }
@@ -417,50 +405,36 @@ class AdminController extends Controller
         return $questionsCreated;
     }
     
-    /**
-     * Extract formatted text from Excel cell and convert to HTML.
-     * Handles both cell-level (uniform) formatting and run-level (RichText) formatting.
-     */
     private function extractFormattedText($cell)
     {
         $cellValue = $cell->getValue();
-
-        // Read cell-level base style (applies when whole cell is uniformly formatted)
         $baseBold = false;
         $baseColorCode = null;
+        
         try {
             $baseFont = $cell->getWorksheet()->getStyle($cell->getCoordinate())->getFont();
             $baseBold = (bool) $baseFont->getBold();
             $baseColor = $baseFont->getColor();
             if ($baseColor) {
                 $code = $baseColor->getRGB();
-                if ($code && $code !== '000000') {
+                if ($code && $code !== '000000' && preg_match('/^[0-9A-F]{6}$/i', $code)) {
                     $baseColorCode = $code;
                 }
             }
-        } catch (\Exception $e) {
-            // ignore — use defaults (no formatting)
-        }
+        } catch (\Exception $e) {}
 
         if ($cellValue instanceof RichText) {
             $html = '';
             foreach ($cellValue->getRichTextElements() as $element) {
-                $text = htmlspecialchars($element->getText());
-                // getFont() only exists on Run elements, not plain TextElement
-                $font = ($element instanceof \PhpOffice\PhpSpreadsheet\RichText\Run)
-                    ? $element->getFont()
-                    : null;
+                $text = htmlspecialchars($element->getText(), ENT_QUOTES, 'UTF-8');
+                $font = ($element instanceof \PhpOffice\PhpSpreadsheet\RichText\Run) ? $element->getFont() : null;
 
-                // Run-level bold: use run value if explicitly set, else fall back to cell base
-                $isBold = ($font !== null && $font->getBold() !== null)
-                    ? (bool) $font->getBold()
-                    : $baseBold;
-
-                // Run-level color: use run value if set and non-black, else fall back to cell base
+                $isBold = ($font !== null && $font->getBold() !== null) ? (bool) $font->getBold() : $baseBold;
                 $colorCode = null;
+                
                 if ($font !== null && $font->getColor() !== null) {
                     $code = $font->getColor()->getRGB();
-                    if ($code && $code !== '000000') {
+                    if ($code && $code !== '000000' && preg_match('/^[0-9A-F]{6}$/i', $code)) {
                         $colorCode = $code;
                     } else {
                         $colorCode = $baseColorCode;
@@ -470,11 +444,11 @@ class AdminController extends Controller
                 }
 
                 if ($isBold && $colorCode) {
-                    $html .= '<strong style="color: #' . $colorCode . '">' . $text . '</strong>';
+                    $html .= '<strong style="color:#' . $colorCode . '">' . $text . '</strong>';
                 } elseif ($isBold) {
                     $html .= '<strong>' . $text . '</strong>';
                 } elseif ($colorCode) {
-                    $html .= '<span style="color: #' . $colorCode . '">' . $text . '</span>';
+                    $html .= '<span style="color:#' . $colorCode . '">' . $text . '</span>';
                 } else {
                     $html .= $text;
                 }
@@ -482,14 +456,13 @@ class AdminController extends Controller
             return $html;
         }
 
-        // Plain (non-RichText) cell — apply cell-level formatting
-        $text = htmlspecialchars((string) $cellValue);
+        $text = htmlspecialchars((string) $cellValue, ENT_QUOTES, 'UTF-8');
         if ($baseBold && $baseColorCode) {
-            return '<strong style="color: #' . $baseColorCode . '">' . $text . '</strong>';
+            return '<strong style="color:#' . $baseColorCode . '">' . $text . '</strong>';
         } elseif ($baseBold) {
             return '<strong>' . $text . '</strong>';
         } elseif ($baseColorCode) {
-            return '<span style="color: #' . $baseColorCode . '">' . $text . '</span>';
+            return '<span style="color:#' . $baseColorCode . '">' . $text . '</span>';
         }
         return $text;
     }
@@ -535,7 +508,6 @@ class AdminController extends Controller
         try {
             Log::info('Processing Excel file with PhpSpreadsheet: ' . $filePath);
             
-            // Load the spreadsheet using PhpSpreadsheet
             $spreadsheet = IOFactory::load($filePath);
             $worksheet = $spreadsheet->getActiveSheet();
             $highestRow = $worksheet->getHighestRow();
@@ -543,24 +515,23 @@ class AdminController extends Controller
             
             Log::info("Excel file loaded: {$highestRow} rows, columns up to {$highestColumn}");
             
-            // Get column mapping for case-insensitive headers
             $columnMapping = $this->getColumnMapping($worksheet);
             
-            // Determine column indices (try both header names and fixed positions)
             $numCol = $this->getColumnIndex($columnMapping, 'number', 'num', '#', 'no') ?? 0;
             $questionCol = $this->getColumnIndex($columnMapping, 'question', 'q') ?? 1;
-            $optionACol = $this->getColumnIndex($columnMapping, 'option a', 'a', 'option_a') ?? 2;
-            $optionBCol = $this->getColumnIndex($columnMapping, 'option b', 'b', 'option_b') ?? 3;
-            $optionCCol = $this->getColumnIndex($columnMapping, 'option c', 'c', 'option_c') ?? 4;
-            $optionDCol = $this->getColumnIndex($columnMapping, 'option d', 'd', 'option_d') ?? 5;
-            $optionECol = $this->getColumnIndex($columnMapping, 'option e', 'e', 'option_e') ?? 6;
-            $answerCol = $this->getColumnIndex($columnMapping, 'correct answer', 'answer', 'ans', 'correct') ?? 7;
+            $diagramCol = $this->getColumnIndex($columnMapping, 'diagram', 'image', 'picture') ?? 2;
+            $optionACol = $this->getColumnIndex($columnMapping, 'option a', 'a', 'option_a') ?? 3;
+            $optionBCol = $this->getColumnIndex($columnMapping, 'option b', 'b', 'option_b') ?? 4;
+            $optionCCol = $this->getColumnIndex($columnMapping, 'option c', 'c', 'option_c') ?? 5;
+            $optionDCol = $this->getColumnIndex($columnMapping, 'option d', 'd', 'option_d') ?? 6;
+            $optionECol = $this->getColumnIndex($columnMapping, 'option e', 'e', 'option_e') ?? 7;
+            $answerCol = $this->getColumnIndex($columnMapping, 'correct answer', 'answer', 'ans', 'correct') ?? 8;
             
-            Log::info("Column mapping: Question={$questionCol}, A={$optionACol}, B={$optionBCol}, C={$optionCCol}, D={$optionDCol}, E={$optionECol}, Answer={$answerCol}");
+            Log::info("Column mapping: Question={$questionCol}, Diagram={$diagramCol}, A={$optionACol}, B={$optionBCol}, C={$optionCCol}, D={$optionDCol}, E={$optionECol}, Answer={$answerCol}");
             
-            // Process each row (skip header row)
+            $imagesByRow = $this->extractImagesFromWorksheet($worksheet);
+            
             for ($row = 2; $row <= $highestRow; $row++) {
-                // Extract formatted text from cells
                 $questionText = $this->extractFormattedText($worksheet->getCellByColumnAndRow($questionCol + 1, $row));
                 $optionA = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionACol + 1, $row));
                 $optionB = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionBCol + 1, $row));
@@ -569,7 +540,6 @@ class AdminController extends Controller
                 $optionE = $this->extractFormattedText($worksheet->getCellByColumnAndRow($optionECol + 1, $row));
                 $correctAnswer = strtoupper(trim(strip_tags($this->extractFormattedText($worksheet->getCellByColumnAndRow($answerCol + 1, $row)))));
                 
-                // Clean up whitespace but preserve HTML formatting
                 $questionText = trim(preg_replace('/\s+/', ' ', $questionText));
                 $optionA = trim(preg_replace('/\s+/', ' ', $optionA));
                 $optionB = trim(preg_replace('/\s+/', ' ', $optionB));
@@ -577,7 +547,6 @@ class AdminController extends Controller
                 $optionD = trim(preg_replace('/\s+/', ' ', $optionD));
                 $optionE = trim(preg_replace('/\s+/', ' ', $optionE));
                 
-                // Remove HTML tags to check if text is actually empty
                 $questionTextPlain = strip_tags($questionText);
                 $optionAPlain = strip_tags($optionA);
                 $optionBPlain = strip_tags($optionB);
@@ -589,26 +558,29 @@ class AdminController extends Controller
                     Log::info("Row {$row} - Question: {$questionTextPlain}, Answer: {$correctAnswer}");
                 }
                 
-                // If option E is empty, set to null
                 if (empty($optionEPlain)) {
                     $optionE = null;
                 }
                 
-                // Validate the data - option E is optional
                 $hasValidOptions = !empty($questionTextPlain) && !empty($optionAPlain) && !empty($optionBPlain) && !empty($optionCPlain) && !empty($optionDPlain);
                 $hasValidAnswer = in_array($correctAnswer, ['A', 'B', 'C', 'D', 'E']);
                 
-                // If answer is E, option E must be present
                 if ($correctAnswer === 'E' && empty($optionEPlain)) {
                     $hasValidAnswer = false;
                 }
                 
                 if ($hasValidOptions && $hasValidAnswer) {
                     try {
+                        $diagramFilename = null;
+                        if (isset($imagesByRow[$row])) {
+                            $diagramFilename = $this->saveImageToStorage($imagesByRow[$row], $questionsCreated + 1);
+                        }
+                        
                         $questionData = [
                             'quiz_id' => $quizId,
                             'subject_id' => $subjectId,
                             'question' => $questionText,
+                            'diagram' => $diagramFilename,
                             'option_a' => $optionA,
                             'option_b' => $optionB,
                             'option_c' => $optionC,
@@ -667,7 +639,6 @@ class AdminController extends Controller
             Log::error('PhpSpreadsheet processing failed: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
             
-            // Fallback to CSV processing
             Log::info('Attempting CSV fallback...');
             return $this->processCsvFile($file, $quizId, $subjectId);
         }
@@ -680,45 +651,60 @@ class AdminController extends Controller
             COUNT(*) as total_attempts,
             SUM(is_correct) as correct_answers,
             AVG(is_correct) * 100 as accuracy
-        ')->groupBy('quiz_id')->with('quiz')->get();
+        ')
+        ->whereNotNull('submitted_at')
+        ->groupBy('quiz_id')
+        ->with(['quiz' => function($q) {
+            $q->select('id', 'title', 'is_active');
+        }])
+        ->get();
 
         return view('admin.statistics', compact('stats'));
     }
 
     private function getQuizRankings($quizId)
     {
+        // 6.3 — resolve expiry for all users in this quiz before computing rankings
+        $resolver = app(QuestionAttemptResolver::class);
+        $quizUserIds = DB::table('quiz_user')->where('quiz_id', $quizId)->pluck('user_id');
+        foreach ($quizUserIds as $uid) {
+            $resolver->resolveAllExpiredForQuiz($uid, $quizId);
+        }
+
         $subjects = Subject::whereHas('questions', function($query) use ($quizId) {
             $query->where('quiz_id', $quizId);
         })->get();
 
-        // Calculate total max points = sum(max_questions × marks_per_question) across all subjects
         $totalMaxPoints = 0;
         foreach ($subjects as $subject) {
             $totalMaxPoints += ($subject->max_questions ?? 5) * ($subject->marks_per_question ?? 1);
         }
 
-        // Fetch per-user, per-subject correct counts in a single query
-        $subjectCorrects = \DB::table('quiz_attempts')
+        // 6.3 — only count submitted attempts; fix N+1 by bulk-loading users
+        $subjectCorrects = DB::table('quiz_attempts')
             ->join('questions', 'quiz_attempts.question_id', '=', 'questions.id')
             ->where('quiz_attempts.quiz_id', $quizId)
+            ->whereNotNull('quiz_attempts.submitted_at')
             ->select('quiz_attempts.user_id', 'questions.subject_id',
-                \DB::raw('SUM(quiz_attempts.is_correct) as correct_count'))
+                DB::raw('SUM(quiz_attempts.is_correct) as correct_count'))
             ->groupBy('quiz_attempts.user_id', 'questions.subject_id')
             ->get()
             ->groupBy('user_id');
 
-        // Fetch last-attempt timestamps per user
-        $lastAttempts = \DB::table('quiz_attempts')
+        $lastAttempts = DB::table('quiz_attempts')
             ->where('quiz_id', $quizId)
-            ->select('user_id', \DB::raw('MAX(created_at) as last_at'))
+            ->whereNotNull('submitted_at')
+            ->select('user_id', DB::raw('MAX(submitted_at) as last_at'))
             ->groupBy('user_id')
             ->pluck('last_at', 'user_id');
 
-        $userIds = $subjectCorrects->keys();
-        $rankings = [];
+        // Bulk-load all users in one query — fixes N+1
+        $userIds   = $subjectCorrects->keys();
+        $usersById = User::whereIn('id', $userIds)->get()->keyBy('id');
+        $rankings  = [];
 
         foreach ($userIds as $userId) {
-            $user = User::find($userId);
+            $user = $usersById->get($userId);
             if (!$user) continue;
 
             $lastAt    = $lastAttempts[$userId] ?? null;
@@ -783,7 +769,7 @@ class AdminController extends Controller
 
     public function quizAnalysis($quizId)
     {
-        $quiz = Quiz::findOrFail($quizId);
+        $quiz = Quiz::select('id', 'title', 'is_active')->findOrFail($quizId);
         $data = $this->getQuizRankings($quizId);
         $rankings = $data['rankings'];
         $subjects = $data['subjects'];
@@ -863,77 +849,82 @@ class AdminController extends Controller
 
     public function subjectAnalysis($quizId, $subjectId)
     {
-        $quiz = Quiz::findOrFail($quizId);
-        $subject = Subject::findOrFail($subjectId);
-        
-        $marks    = $subject->marks_per_question ?? 1;
-        $maxQ     = $subject->max_questions ?? 5;
-        $maxPts   = $maxQ * $marks;
+        $quiz    = Quiz::select('id', 'title')->findOrFail($quizId);
+        $subject = Subject::select('id', 'name', 'max_questions', 'marks_per_question')->findOrFail($subjectId);
+
+        // 6.3 — resolve expiry for all users in this quiz before computing stats
+        $resolver    = app(QuestionAttemptResolver::class);
+        $quizUserIds = DB::table('quiz_user')->where('quiz_id', $quizId)->pluck('user_id');
+        foreach ($quizUserIds as $uid) {
+            $resolver->resolveAllExpiredForQuiz($uid, $quizId);
+        }
+
+        $marks  = $subject->marks_per_question ?? 1;
+        $maxQ   = $subject->max_questions ?? 5;
+        $maxPts = $maxQ * $marks;
 
         $rankings = QuizAttempt::where('quiz_id', $quizId)
             ->whereHas('question', function($query) use ($subjectId) {
                 $query->where('subject_id', $subjectId);
             })
-            ->selectRaw('user_id, COUNT(*) as total, SUM(is_correct) as correct')
+            ->whereNotNull('submitted_at')
+            ->selectRaw('user_id, COUNT(*) as total, SUM(is_correct) as correct, MAX(submitted_at) as last_attempt_at')
             ->groupBy('user_id')
-            ->with('user')
+            ->with(['user' => function($q) {
+                $q->select('id', 'name', 'email');
+            }])
             ->get()
-            ->map(function($item) use ($quizId, $subjectId, $marks, $maxPts) {
-                $item->points    = (int)$item->correct * $marks;
+            ->map(function($item) use ($marks, $maxPts) {
+                $item->points = (int)$item->correct * $marks;
                 $item->max_points = $maxPts;
                 $item->percentage = $maxPts > 0 ? round(($item->points / $maxPts) * 100, 2) : 0;
-                
-                // Get the actual last attempt with proper Carbon instance
-                $lastAttempt = QuizAttempt::where('quiz_id', $quizId)
-                    ->where('user_id', $item->user_id)
-                    ->whereHas('question', function($query) use ($subjectId) {
-                        $query->where('subject_id', $subjectId);
-                    })
-                    ->latest('created_at')
-                    ->first();
-                
-                $item->last_attempt_date = $lastAttempt && $lastAttempt->created_at ? $lastAttempt->created_at->format('M j, Y') : 'N/A';
-                $item->last_attempt_time = $lastAttempt && $lastAttempt->created_at ? $lastAttempt->created_at->format('g:i A') : '';
-                
+                $item->last_attempt_date = $item->last_attempt_at ? \Carbon\Carbon::parse($item->last_attempt_at)->format('M j, Y') : 'N/A';
+                $item->last_attempt_time = $item->last_attempt_at ? \Carbon\Carbon::parse($item->last_attempt_at)->format('g:i A') : '';
                 return $item;
             })
             ->sortByDesc('percentage')
             ->values();
-        
+
         return view('admin.subject_analysis', compact('quiz', 'subject', 'rankings'));
     }
 
     public function studentSubjectReview($quizId, $subjectId, $userId)
     {
-        $quiz = Quiz::findOrFail($quizId);
-        $subject = Subject::findOrFail($subjectId);
-        $user = User::findOrFail($userId);
-        
-        $attempts = QuizAttempt::where('user_id', $userId)
-            ->where('quiz_id', $quizId)
-            ->whereHas('question', function($query) use ($subjectId) {
-                $query->where('subject_id', $subjectId);
-            })
-            ->with('question')
-            ->get();
-        
-        // Add question numbers
+        $quiz    = Quiz::select('id', 'title')->findOrFail($quizId);
+        $subject = Subject::select('id', 'name')->findOrFail($subjectId);
+        $user    = User::select('id', 'name', 'email')->findOrFail($userId);
+
+        // 6.3/6.7 — resolve expiry before reading attempts
+        app(QuestionAttemptResolver::class)->resolveAllExpiredForQuiz($userId, $quizId);
+
         $allQuestions = Question::where('quiz_id', $quizId)
             ->where('subject_id', $subjectId)
             ->orderBy('id')
             ->pluck('id')
             ->toArray();
-        
+
+        $attempts = QuizAttempt::where('user_id', $userId)
+            ->where('quiz_id', $quizId)
+            ->whereHas('question', function($query) use ($subjectId) {
+                $query->where('subject_id', $subjectId);
+            })
+            ->whereNotNull('submitted_at')
+            ->with(['question' => function($q) {
+                $q->select('id', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'correct_answer');
+            }])
+            ->get();
+
         foreach ($attempts as $attempt) {
             $attempt->question_number = array_search($attempt->question_id, $allQuestions) + 1;
         }
-        
+
         return view('admin.student_subject_review', compact('quiz', 'subject', 'user', 'attempts'));
     }
 
     public function leaderboard()
     {
-        $quizzes = Quiz::withCount('questions')
+        $quizzes = Quiz::select('id', 'title', 'is_active', 'created_at')
+            ->withCount('questions')
             ->withCount(['attempts as total_attempts'])
             ->withCount(['users as participants_count'])
             ->get();
@@ -943,7 +934,7 @@ class AdminController extends Controller
 
     public function quizLeaderboard($quizId)
     {
-        $quiz = Quiz::with('questions', 'users')->findOrFail($quizId);
+        $quiz = Quiz::select('id', 'title', 'is_active')->findOrFail($quizId);
         $data = $this->getQuizRankings($quizId);
         $rankings = $data['rankings'];
         $subjects = $data['subjects'];
@@ -953,21 +944,35 @@ class AdminController extends Controller
 
     public function studentQuizDetails($quizId, $userId)
     {
-        $quiz = Quiz::findOrFail($quizId);
-        $user = User::findOrFail($userId);
-        
+        $quiz = Quiz::select('id', 'title')->findOrFail($quizId);
+        $user = User::select('id', 'name', 'email')->findOrFail($userId);
+
+        // 6.3/6.7 — resolve expiry before reading attempts
+        app(QuestionAttemptResolver::class)->resolveAllExpiredForQuiz($userId, $quizId);
+
         $attempts = QuizAttempt::where('quiz_id', $quizId)
             ->where('user_id', $userId)
+            ->whereNotNull('submitted_at')
             ->with(['question' => function($q) {
-                $q->with('subject');
+                $q->select('id', 'question', 'subject_id', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'correct_answer')
+                  ->with(['subject' => function($sq) {
+                      $sq->select('id', 'name');
+                  }]);
             }])
             ->get();
-        
+
+        // 6.6 — three distinct outcome states
+        $correct    = $attempts->where('is_correct', true)->count();
+        $incorrect  = $attempts->where('is_correct', false)->where('is_auto_expired', false)->count();
+        $unanswered = $attempts->where('is_correct', false)->where('is_auto_expired', true)->count();
+
         $stats = [
-            'total' => $attempts->count(),
-            'correct' => $attempts->where('is_correct', true)->count(),
-            'failed' => $attempts->where('is_correct', false)->count(),
-            'accuracy' => $attempts->count() > 0 ? round(($attempts->where('is_correct', true)->count() / $attempts->count()) * 100, 2) : 0
+            'total'      => $attempts->count(),
+            'correct'    => $correct,
+            'incorrect'  => $incorrect,
+            'unanswered' => $unanswered,
+            'accuracy'   => $attempts->count() > 0
+                ? round(($correct / $attempts->count()) * 100, 2) : 0,
         ];
 
         return view('admin.student_quiz_details', compact('quiz', 'user', 'attempts', 'stats'));
@@ -977,43 +982,71 @@ class AdminController extends Controller
     {
         $quiz = Quiz::findOrFail($id);
 
-        // Explicitly delete all attempts for this quiz's questions
-        $questionIds = Question::where('quiz_id', $id)->pluck('id');
-        QuizAttempt::whereIn('question_id', $questionIds)->delete();
-        QuizAttempt::where('quiz_id', $id)->delete();
+        DB::transaction(function () use ($id, $quiz) {
+            // 6.2 — cascade-close any open attempts before deleting
+            QuizAttempt::where('quiz_id', $id)
+                ->where('locked', false)
+                ->whereNotNull('started_at')
+                ->update([
+                    'locked'          => true,
+                    'submitted'       => true,
+                    'is_auto_expired' => true,
+                    'submitted_at'    => now(),
+                    'locked_at'       => now(),
+                ]);
 
-        // Delete all questions for this quiz
-        Question::where('quiz_id', $id)->delete();
-
-        // Delete the quiz (also handles quiz_user pivot via cascade)
-        $quiz->delete();
+            $questionIds = Question::where('quiz_id', $id)->pluck('id');
+            QuizAttempt::whereIn('question_id', $questionIds)->delete();
+            QuizAttempt::where('quiz_id', $id)->delete();
+            Question::where('quiz_id', $id)->delete();
+            $quiz->delete();
+        });
 
         return back()->with('success', 'Quiz deleted successfully.');
     }
 
     public function dashboardStatsApi()
     {
-        $total_questions   = Question::count();
-        $total_quizzes     = Quiz::count();
-        $total_users       = User::where('role', 'quizzer')->count();
-        $pending_approvals = User::where('is_approved', false)->count();
-
-        $top3 = User::where('role', 'quizzer')
-            ->withCount(['attempts as total_attempts'])
-            ->withCount(['attempts as correct_answers' => fn($q) => $q->where('is_correct', true)])
-            ->get()
-            ->filter(fn($u) => $u->total_attempts > 0)
-            ->map(fn($u) => [
-                'name'     => $u->name,
-                'accuracy' => round(($u->correct_answers / $u->total_attempts) * 100),
+        $stats = $this->dashboardStats->getStatistics();
+        
+        // Calculate from actual database records
+        $totalQuestions = Question::count();
+        $totalQuizzes = Quiz::count();
+        $totalUsers = User::where('role', 'quizzer')->count();
+        $pendingApprovals = User::where('role', 'quizzer')->where('is_approved', false)->count();
+        
+        // Get actual user performance from attempts
+        $userStats = User::where('role', 'quizzer')
+            ->where('is_approved', true)
+            ->withCount([
+                'attempts as total_attempts' => function($query) {
+                    $query->where('submitted', true);
+                },
+                'attempts as correct_answers' => function($query) {
+                    $query->where('submitted', true)->where('is_correct', true);
+                }
             ])
+            ->having('total_attempts', '>', 0)
+            ->get()
+            ->map(function($user) {
+                return [
+                    'name' => $user->name,
+                    'total_attempts' => $user->total_attempts,
+                    'correct_answers' => $user->correct_answers,
+                    'accuracy' => $user->total_attempts > 0 ? round(($user->correct_answers / $user->total_attempts) * 100, 1) : 0
+                ];
+            })
             ->sortByDesc('accuracy')
             ->take(3)
             ->values();
 
-        return response()->json(compact(
-            'total_questions', 'total_quizzes', 'total_users', 'pending_approvals', 'top3'
-        ))->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+        return response()->json([
+            'total_questions' => $totalQuestions,
+            'total_quizzes' => $totalQuizzes,
+            'total_users' => $totalUsers,
+            'pending_approvals' => $pendingApprovals,
+            'top3' => $userStats
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
     
     public function toggleQuizStatus($id)
@@ -1035,11 +1068,11 @@ class AdminController extends Controller
     
     public function downloadTemplate()
     {
-        $csv = "Number,Question,Option A,Option B,Option C,Option D,Option E,Correct Answer\n";
-        $csv .= "1,What is the normal heart rate?,60-100 bpm,40-60 bpm,100-120 bpm,120-140 bpm,,A\n";
-        $csv .= "2,Which organ produces insulin?,Liver,Pancreas,Kidney,Spleen,Heart,B\n";
-        $csv .= "3,What is the largest bone in the human body?,Femur,Tibia,Humerus,Radius,,A\n";
-        $csv .= "4,How many chambers does the human heart have?,2,3,4,5,6,C\n";
+        $csv = "Number,Question,Diagram,Option A,Option B,Option C,Option D,Option E,Correct Answer\n";
+        $csv .= "1,What is the normal heart rate?,[paste image here],60-100 bpm,40-60 bpm,100-120 bpm,120-140 bpm,,A\n";
+        $csv .= "2,Which organ produces insulin?,[paste image here],Liver,Pancreas,Kidney,Spleen,Heart,B\n";
+        $csv .= "3,What is the largest bone in the human body?,[paste image here],Femur,Tibia,Humerus,Radius,,A\n";
+        $csv .= "4,How many chambers does the human heart have?,[paste image here],2,3,4,5,6,C\n";
         
         return response($csv)
             ->header('Content-Type', 'text/csv')
@@ -1067,8 +1100,10 @@ class AdminController extends Controller
     {
         $quiz = Quiz::findOrFail($id);
         $quiz->update([
-            'title' => $request->title,
+            'title'     => $request->title,
             'is_active' => $request->boolean('is_active'),
+            'lock_mode' => in_array($request->lock_mode, ['per_user', 'global'])
+                ? $request->lock_mode : 'per_user',
         ]);
         return response()->json(['success' => true]);
     }
@@ -1076,23 +1111,39 @@ class AdminController extends Controller
     public function updateQuizUsers(Request $request, $id)
     {
         $request->validate([
-            'user_ids' => 'sometimes|array', // Allow empty array to unassign all users
+            'user_ids'   => 'sometimes|array',
             'user_ids.*' => 'exists:users,id',
         ]);
-        
-        $quiz = Quiz::findOrFail($id);
-        
-        // If user_ids is provided (even if empty), sync them
+
+        $quiz    = Quiz::findOrFail($id);
         $userIds = $request->input('user_ids', []);
-        $quiz->users()->sync($userIds);
-        
-        // Clear any cached user data
-        \Cache::forget("quiz_{$id}_users");
-        
+
+        DB::transaction(function () use ($quiz, $id, $userIds) {
+            // 6.2 — find users being removed and cascade-close their open attempts
+            $currentUserIds = $quiz->users()->pluck('users.id')->toArray();
+            $removedUserIds = array_diff($currentUserIds, $userIds);
+
+            if (!empty($removedUserIds)) {
+                QuizAttempt::where('quiz_id', $id)
+                    ->whereIn('user_id', $removedUserIds)
+                    ->where('locked', false)
+                    ->whereNotNull('started_at')
+                    ->update([
+                        'locked'          => true,
+                        'submitted'       => true,
+                        'is_auto_expired' => true,
+                        'submitted_at'    => now(),
+                        'locked_at'       => now(),
+                    ]);
+            }
+
+            $quiz->users()->sync($userIds);
+        });
+
         return response()->json([
-            'success' => true, 
-            'message' => 'User assignments updated successfully',
-            'assigned_count' => count($userIds)
+            'success'        => true,
+            'message'        => 'User assignments updated successfully',
+            'assigned_count' => count($userIds),
         ]);
     }
     
@@ -1314,80 +1365,155 @@ class AdminController extends Controller
 
     public function updateSubjectTime(Request $request, $quizId, $subjectId)
     {
-        \DB::beginTransaction();
-        
+        DB::beginTransaction();
+
         try {
-            $timePerQuestion = $request->input('time_per_question');
-            
+            $timePerQuestion = (int) $request->input('time_per_question');
+
             if ($timePerQuestion < 10 || $timePerQuestion > 600) {
                 return response()->json(['success' => false, 'message' => 'Time must be between 10 and 600 seconds'], 400);
             }
-            
+
+            // 6.1 — block if any student has an active attempt on these questions
+            $hasActiveAttempt = QuizAttempt::where('quiz_id', $quizId)
+                ->whereHas('question', fn($q) => $q->where('subject_id', $subjectId))
+                ->where('locked', false)
+                ->whereNotNull('started_at')
+                ->exists();
+
+            if ($hasActiveAttempt) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Cannot update time while a student has an active attempt on this subject.'], 409);
+            }
+
+            // 6.1 — only update time_per_question on questions; never touch expires_at on existing attempts
             $updatedCount = Question::where('quiz_id', $quizId)
-                                  ->where('subject_id', $subjectId)
-                                  ->update(['time_per_question' => $timePerQuestion]);
-            
-            \DB::commit();
-            
+                ->where('subject_id', $subjectId)
+                ->lockForUpdate()
+                ->update(['time_per_question' => $timePerQuestion]);
+
+            DB::commit();
+
             return response()->json([
-                'success' => true, 
-                'message' => "Time updated successfully for all questions in this subject.",
-                'updated_count' => $updatedCount
+                'success'       => true,
+                'message'       => 'Time updated successfully for all questions in this subject.',
+                'updated_count' => $updatedCount,
             ]);
-            
+
         } catch (\Exception $e) {
-            \DB::rollBack();
-            return response()->json([
-                'success' => false, 
-                'message' => 'Failed to update time: ' . $e->getMessage()
-            ], 500);
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Failed to update time: ' . $e->getMessage()], 500);
         }
     }
 
+    // 6.4 — was private, route was registered but would fatal-error; now public
     public function updateSubjectSettings(Request $request, $quizId, $subjectId)
     {
-        \DB::beginTransaction();
-        
+        DB::beginTransaction();
+
         try {
-            $timePerQuestion = $request->input('time_per_question');
-            $maxQuestions = $request->input('max_questions', 5);
-            $marksPerQuestion = $request->input('marks_per_question', 1);
-            
+            $timePerQuestion  = (int) $request->input('time_per_question');
+            $maxQuestions     = (int) $request->input('max_questions', 5);
+            $marksPerQuestion = (int) $request->input('marks_per_question', 1);
+
             if ($timePerQuestion < 10 || $timePerQuestion > 600) {
                 return response()->json(['success' => false, 'message' => 'Time must be between 10 and 600 seconds'], 400);
             }
-
             if ($marksPerQuestion < 1) {
                 return response()->json(['success' => false, 'message' => 'Marks per question must be at least 1'], 400);
             }
-            
-            // Update questions time per question
+
+            // 6.1 — block if any student has an active attempt on these questions
+            $hasActiveAttempt = QuizAttempt::where('quiz_id', $quizId)
+                ->whereHas('question', fn($q) => $q->where('subject_id', $subjectId))
+                ->where('locked', false)
+                ->whereNotNull('started_at')
+                ->exists();
+
+            if ($hasActiveAttempt) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Cannot update settings while a student has an active attempt on this subject.'], 409);
+            }
+
+            // 6.5 — lockForUpdate prevents concurrent admin edits corrupting the same rows
             $updatedCount = Question::where('quiz_id', $quizId)
-                                  ->where('subject_id', $subjectId)
-                                  ->update(['time_per_question' => $timePerQuestion]);
-            
-            // Update subject max_questions
+                ->where('subject_id', $subjectId)
+                ->lockForUpdate()
+                ->update(['time_per_question' => $timePerQuestion]);
+
             $subject = Subject::find($subjectId);
             if ($subject) {
-                $subject->max_questions = $maxQuestions;
+                $subject->lockForUpdate();
+                $subject->max_questions     = $maxQuestions;
                 $subject->marks_per_question = $marksPerQuestion;
                 $subject->save();
             }
-            
-            \DB::commit();
-            
+
+            DB::commit();
+
             return response()->json([
-                'success' => true, 
-                'message' => "Settings updated successfully for all questions in this subject.",
-                'updated_count' => $updatedCount
+                'success'       => true,
+                'message'       => 'Settings updated successfully for all questions in this subject.',
+                'updated_count' => $updatedCount,
             ]);
-            
+
         } catch (\Exception $e) {
-            \DB::rollBack();
-            return response()->json([
-                'success' => false, 
-                'message' => 'Failed to update settings: ' . $e->getMessage()
-            ], 500);
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Failed to update settings: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function extractImagesFromWorksheet($worksheet)
+    {
+        $imagesByRow = [];
+        
+        foreach ($worksheet->getDrawingCollection() as $drawing) {
+            $coordinates = $drawing->getCoordinates();
+            preg_match('/([A-Z]+)(\d+)/', $coordinates, $matches);
+            
+            if (isset($matches[2])) {
+                $row = (int)$matches[2];
+                
+                if ($drawing instanceof \PhpOffice\PhpSpreadsheet\Worksheet\Drawing) {
+                    $imagesByRow[$row] = [
+                        'type' => 'file',
+                        'path' => $drawing->getPath()
+                    ];
+                } elseif ($drawing instanceof \PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing) {
+                    $imagesByRow[$row] = [
+                        'type' => 'memory',
+                        'resource' => $drawing->getImageResource(),
+                        'mime' => $drawing->getMimeType()
+                    ];
+                }
+            }
+        }
+        
+        return $imagesByRow;
+    }
+
+    private function saveImageToStorage($imageData, $questionNumber)
+    {
+        $storagePath = storage_path('app/public/question_diagrams');
+        
+        if (!file_exists($storagePath)) {
+            mkdir($storagePath, 0755, true);
+        }
+        
+        $filename = 'question_' . $questionNumber . '.png';
+        $fullPath = $storagePath . '/' . $filename;
+        
+        try {
+            if ($imageData['type'] === 'file') {
+                copy($imageData['path'], $fullPath);
+            } elseif ($imageData['type'] === 'memory') {
+                imagepng($imageData['resource'], $fullPath);
+            }
+            
+            return $filename;
+        } catch (\Exception $e) {
+            Log::error('Image save error: ' . $e->getMessage());
+            return null;
         }
     }
 }

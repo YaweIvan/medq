@@ -14,11 +14,17 @@
         .incorrect-row {
             background-color: #fee2e2 !important;
         }
+        .unanswered-row {
+            background-color: #fef9c3 !important;
+        }
         .correct-row td {
             background-color: #d1fae5 !important;
         }
         .incorrect-row td {
             background-color: #fee2e2 !important;
+        }
+        .unanswered-row td {
+            background-color: #fef9c3 !important;
         }
         .question-row {
             cursor: pointer;
@@ -90,19 +96,30 @@
                             </thead>
                             <tbody>
                                 @foreach($attempts as $attempt)
-                                    <tr class="question-row {{ $attempt->is_correct ? 'correct-row' : 'incorrect-row' }}"
+                                    @php
+                                        $rowClass = $attempt->is_correct
+                                            ? 'correct-row'
+                                            : ($attempt->is_auto_expired ? 'unanswered-row' : 'incorrect-row');
+                                    @endphp
+                                    <tr class="question-row {{ $rowClass }}"
                                         data-qnum="{{ $attempt->question_number }}"
-                                        data-question="{{ $attempt->question->question }}"
-                                        data-option-a="{{ $attempt->question->option_a }}"
-                                        data-option-b="{{ $attempt->question->option_b }}"
-                                        data-option-c="{{ $attempt->question->option_c }}"
-                                        data-option-d="{{ $attempt->question->option_d }}"
-                                        data-option-e="{{ $attempt->question->option_e }}"
+                                        data-question="{!! addslashes($attempt->question->question) !!}"
+                                        data-diagram="{{ $attempt->question->diagram }}"
+                                        data-option-a="{!! addslashes($attempt->question->option_a) !!}"
+                                        data-option-b="{!! addslashes($attempt->question->option_b) !!}"
+                                        data-option-c="{!! addslashes($attempt->question->option_c) !!}"
+                                        data-option-d="{!! addslashes($attempt->question->option_d) !!}"
+                                        data-option-e="{!! addslashes($attempt->question->option_e) !!}"
                                         data-correct="{{ $attempt->question->correct_answer }}"
-                                        data-selected="{{ $attempt->selected_answer ?: '' }}">
+                                        data-selected="{{ $attempt->selected_answer ?: '' }}"
+                                        data-unanswered="{{ $attempt->is_auto_expired ? '1' : '0' }}">
                                         <td>Question #{{ $attempt->question_number }} <small class="text-muted ms-1"><i class="fas fa-chevron-down" style="font-size:0.75rem"></i></small></td>
                                         <td class="text-center">
-                                            <strong>{{ $attempt->selected_answer ?: 'No Answer' }}</strong>
+                                            @if($attempt->is_auto_expired)
+                                                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Timed Out</span>
+                                            @else
+                                                <strong>{{ $attempt->selected_answer ?: 'No Answer' }}</strong>
+                                            @endif
                                         </td>
                                         <td class="text-center">
                                             <strong>{{ $attempt->question->correct_answer }}</strong>
@@ -152,10 +169,11 @@
                 document.querySelectorAll('.question-row').forEach(r => r.classList.remove('selected-row'));
                 this.classList.add('selected-row');
 
-                const qnum    = this.dataset.qnum;
-                const question = this.dataset.question;
-                const correct  = this.dataset.correct.toUpperCase();
-                const selected = this.dataset.selected.toUpperCase();
+                const qnum       = this.dataset.qnum;
+                const question   = this.dataset.question;
+                const correct    = this.dataset.correct.toUpperCase();
+                const selected   = this.dataset.selected.toUpperCase();
+                const unanswered = this.dataset.unanswered === '1';
                 const opts = {
                     A: this.dataset.optionA,
                     B: this.dataset.optionB,
@@ -166,6 +184,12 @@
 
                 detailNum.textContent = 'Question #' + qnum;
                 detailText.innerHTML = question;
+                
+                // Add diagram if exists
+                const diagram = this.dataset.diagram;
+                if (diagram) {
+                    detailText.innerHTML += `<div class="mt-3"><img src="{{ asset('storage/question_diagrams/') }}/${diagram}" class="img-fluid" style="max-width: 400px; border-radius: 8px;"></div>`;
+                }
 
                 let html = '';
                 labels.forEach(lbl => {
@@ -186,11 +210,13 @@
                     html += `<div class="${cls}"><span class="option-label">${lbl}.</span>${text}${badge}</div>`;
                 });
 
-                if (!selected) {
-                    html += `<div class="alert alert-warning mt-2 mb-0 py-2"><i class="fas fa-exclamation-triangle me-2"></i>No answer was selected for this question.</div>`;
-                }
-
                 detailOptions.innerHTML = html;
+
+                if (unanswered) {
+                    detailOptions.innerHTML += `<div class="alert alert-warning mt-2 mb-0 py-2"><i class="fas fa-clock me-2"></i>This question timed out — no answer was submitted.</div>`;
+                } else if (!selected) {
+                    detailOptions.innerHTML += `<div class="alert alert-warning mt-2 mb-0 py-2"><i class="fas fa-exclamation-triangle me-2"></i>No answer was selected for this question.</div>`;
+                }
 
                 if (correct && opts[correct]) {
                     detailFooter.innerHTML = `<i class="fas fa-check-circle text-success me-1"></i>Correct Answer: <strong>${correct}. ${opts[correct]}</strong>`;

@@ -7,8 +7,6 @@ use App\Http\Controllers\QuizzerController;
 use App\Http\Controllers\StatisticsApiController;
 use App\Http\Controllers\QuizzerApiController;
 
-Route::get('/quizzer/stats', [StatisticsApiController::class, 'index']);
-
 
 // Public routes
 Route::get('/', function () {
@@ -25,7 +23,7 @@ Route::post('/setup', [AuthController::class, 'processSetup'])->name('setup.proc
 
 // Auth routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -85,6 +83,13 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         Route::delete('/{id}', [AdminController::class, 'deleteQuiz'])->name('delete');
         Route::post('/{id}/toggle', [AdminController::class, 'toggleQuizStatus'])->name('toggle');
     });
+    
+    // Subject routes
+    Route::prefix('subjects')->name('subjects.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SubjectController::class, 'index'])->name('index');
+        Route::post('/update-order', [\App\Http\Controllers\SubjectController::class, 'updateOrder'])->name('update-order');
+        Route::post('/{subject}/replace-file', [\App\Http\Controllers\SubjectController::class, 'replaceFile'])->name('replace-file');
+    });
 });
 
 // Quizzer routes
@@ -92,6 +97,7 @@ Route::prefix('quizzer')->middleware(['auth', 'quizzer'])->name('quizzer.')->gro
     Route::get('/dashboard', [QuizzerController::class, 'dashboard'])->name('dashboard');
     Route::get('/quiz/{quiz}/subjects', [QuizzerController::class, 'quizSubjects'])->name('quiz.subjects');
     Route::get('/quiz/{quiz}/subject/{subject}/grid', [QuizzerController::class, 'questionGrid'])->name('question.grid');
+    Route::get('/quiz/{quiz}/subject/{subject}/grid-status', [QuizzerController::class, 'gridStatus'])->name('grid.status');
     Route::get('/quiz/{quiz}/subject/{subject}/questions', [QuizzerController::class, 'questions'])->name('questions');
     Route::get('/question/{question}', [QuizzerController::class, 'showQuestion'])->name('question.show');
     Route::post('/submit-answer', [QuizzerController::class, 'submitAnswer'])->name('submit.answer');
@@ -114,17 +120,11 @@ Route::prefix('quizzer')->middleware(['auth', 'quizzer'])->name('quizzer.')->gro
     });
 });
 
-// Cache clearing route for InfinityFree (remove after first use for security)
+// Cache clearing route — auth + admin protected
 Route::get('/clear-all-cache', function() {
     \Illuminate\Support\Facades\Artisan::call('cache:clear');
     \Illuminate\Support\Facades\Artisan::call('view:clear');
     \Illuminate\Support\Facades\Artisan::call('config:clear');
     \Illuminate\Support\Facades\Artisan::call('route:clear');
-    
-    return '<h1>✅ All Caches Cleared Successfully!</h1>
-            <p>Cache cleared ✓</p>
-            <p>Views cleared ✓</p>
-            <p>Config cleared ✓</p>
-            <p>Routes cleared ✓</p>
-            <p><strong>⚠️ IMPORTANT: Remove this route from web.php after use for security!</strong></p>';
-});
+    return '<h1>All Caches Cleared</h1>';
+})->middleware(['auth', 'admin']);

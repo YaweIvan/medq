@@ -26,11 +26,17 @@
         .incorrect-row {
             background-color: #fee2e2 !important;
         }
+        .unanswered-row {
+            background-color: #fef9c3 !important;
+        }
         .correct-row td {
             background-color: #d1fae5 !important;
         }
         .incorrect-row td {
             background-color: #fee2e2 !important;
+        }
+        .unanswered-row td {
+            background-color: #fef9c3 !important;
         }
     </style>
 </head>
@@ -57,16 +63,34 @@
                             <thead>
                                 <tr>
                                     <th>Question Number</th>
+                                    <th>Question</th>
                                     <th class="text-center">Answer Selected</th>
                                     <th class="text-center">Correct Answer</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($attempts as $attempt)
-                                    <tr class="{{ $attempt->is_correct ? 'correct-row' : 'incorrect-row' }}">
+                                    @php
+                                        $rowClass = $attempt->is_correct
+                                            ? 'correct-row'
+                                            : ($attempt->is_auto_expired ? 'unanswered-row' : 'incorrect-row');
+                                    @endphp
+                                    <tr class="{{ $rowClass }}">
                                         <td>Question #{{ $attempt->question_number }}</td>
+                                        <td>
+                                            {!! $attempt->question->question !!}
+                                            @if($attempt->question->diagram)
+                                                <div class="mt-2">
+                                                    <img src="{{ asset('storage/question_diagrams/'.$attempt->question->diagram) }}" alt="Diagram" class="img-thumbnail" style="max-width: 200px;">
+                                                </div>
+                                            @endif
+                                        </td>
                                         <td class="text-center">
-                                            <strong>{{ $attempt->selected_answer ?: 'No Answer' }}</strong>
+                                            @if($attempt->is_auto_expired)
+                                                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Timed Out</span>
+                                            @else
+                                                <strong>{{ $attempt->selected_answer ?: 'No Answer' }}</strong>
+                                            @endif
                                         </td>
                                         <td class="text-center">
                                             <strong>{{ $attempt->question->correct_answer }}</strong>
