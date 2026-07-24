@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo_mysql zip gd bcmath opcache \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/* \
     && mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
@@ -22,7 +24,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         echo 'opcache.max_accelerated_files=20000'; \
         echo 'opcache.validate_timestamps=0'; \
         echo 'opcache.jit_buffer_size=64M'; \
-    } > "$PHP_INI_DIR/conf.d/opcache.ini"
+    } > "$PHP_INI_DIR/conf.d/opcache.ini" \
+    && { \
+        echo '<IfModule mpm_prefork_module>'; \
+        echo '  StartServers 10'; \
+        echo '  MinSpareServers 10'; \
+        echo '  MaxSpareServers 25'; \
+        echo '  ServerLimit 120'; \
+        echo '  MaxRequestWorkers 120'; \
+        echo '  MaxConnectionsPerChild 2000'; \
+        echo '</IfModule>'; \
+    } > /etc/apache2/conf-available/tuning.conf \
+    && a2enconf tuning
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
