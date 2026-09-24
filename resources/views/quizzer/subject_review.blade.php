@@ -21,22 +21,25 @@
             margin-left: 70px;
         }
         .correct-row {
-            background-color: #d1fae5 !important;
+            background-color: rgba(34, 197, 94, 0.18) !important;
         }
         .incorrect-row {
-            background-color: #fee2e2 !important;
+            background-color: rgba(239, 68, 68, 0.18) !important;
         }
         .unanswered-row {
-            background-color: #fef9c3 !important;
+            background-color: rgba(234, 179, 8, 0.18) !important;
         }
         .correct-row td {
-            background-color: #d1fae5 !important;
+            background-color: rgba(34, 197, 94, 0.18) !important;
+            color: #e2e8f0 !important;
         }
         .incorrect-row td {
-            background-color: #fee2e2 !important;
+            background-color: rgba(239, 68, 68, 0.18) !important;
+            color: #e2e8f0 !important;
         }
         .unanswered-row td {
-            background-color: #fef9c3 !important;
+            background-color: rgba(234, 179, 8, 0.18) !important;
+            color: #e2e8f0 !important;
         }
     </style>
 </head>

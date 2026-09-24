@@ -34,8 +34,8 @@
             <div class="row justify-content-center">
                 <div class="col-lg-10">
                     <div class="text-center mb-5">
-                        <h2 class="fw-bold text-dark mb-3">Welcome to Your Dashboard</h2>
-                        <p class="text-muted">Select a quiz to begin your medical knowledge assessment</p>
+                        <h2 class="fw-bold text-white mb-3">Welcome to Your Dashboard</h2>
+                        <p class="text-white">Select a quiz to begin your medical knowledge assessment</p>
                     </div>
 
                     @if($activeQuizzes->count() > 0)
@@ -47,8 +47,8 @@
                                             <div class="mb-2">
                                                 <i class="fas fa-clipboard-list text-primary" style="font-size: 2rem;"></i>
                                             </div>
-                                            <h5 class="card-title text-dark mb-2">{{ $quiz->title }}</h5>
-                                            <p class="card-text text-muted small mb-3">{{ Str::limit($quiz->description, 60) }}</p>
+                                            <h5 class="card-title text-white mb-2">{{ $quiz->title }}</h5>
+                                            <p class="card-text text-white small mb-3">{{ Str::limit($quiz->description, 60) }}</p>
                                             <a href="{{ route('quizzer.quiz.subjects', $quiz->id) }}" class="btn btn-primary px-3">
                                                 <i class="fas fa-play me-1"></i>Start Quiz
                                             </a>
@@ -59,9 +59,9 @@
                         </div>
                     @else
                         <div class="text-center py-4">
-                            <i class="fas fa-info-circle text-muted" style="font-size: 3rem;"></i>
-                            <h5 class="text-muted mt-3">No Active Quizzes</h5>
-                            <p class="text-muted">No quizzes have been assigned to you at this time.</p>
+                            <i class="fas fa-info-circle text-white" style="font-size: 3rem;"></i>
+                            <h5 class="text-white mt-3">No Active Quizzes</h5>
+                            <p class="text-white">No quizzes have been assigned to you at this time.</p>
                         </div>
                     @endif
                 </div>

@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Make selected_answer nullable to support failed time-expired attempts with empty answers
-        \DB::statement("ALTER TABLE quiz_attempts MODIFY COLUMN selected_answer ENUM('A', 'B', 'C', 'D', 'E', '') NULL");
+        if (\DB::getDriverName() === 'mysql') {
+            // Make selected_answer nullable to support failed time-expired attempts with empty answers
+            \DB::statement("ALTER TABLE quiz_attempts MODIFY COLUMN selected_answer ENUM('A', 'B', 'C', 'D', 'E', '') NULL");
+        }
     }
 
     /**
@@ -20,7 +22,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revert back to non-nullable
-        \DB::statement("ALTER TABLE quiz_attempts MODIFY COLUMN selected_answer ENUM('A', 'B', 'C', 'D', 'E') NOT NULL");
+        if (\DB::getDriverName() === 'mysql') {
+            // Revert back to non-nullable
+            \DB::statement("ALTER TABLE quiz_attempts MODIFY COLUMN selected_answer ENUM('A', 'B', 'C', 'D', 'E') NOT NULL");
+        }
     }
 };

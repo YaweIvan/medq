@@ -151,23 +151,23 @@
                                 <i class="fas fa-download"></i> Download Sample Template
                             </a>
                         </div>
-                        <p class="mb-2 fw-bold">Your file MUST have 8 or 9 columns in this order:</p>
+                        <p class="mb-2 fw-bold" style="color:#f1f5f9;">Your file MUST have 8 or 9 columns in this order:</p>
                         <div class="table-responsive">
-                            <table class="table table-sm table-bordered bg-white mb-2">
-                                <thead class="table-dark">
+                            <table class="table table-sm table-bordered mb-2" style="background:#ffffff;">
+                                <thead style="background:#1e293b;">
                                     <tr>
-                                        <th>Column A</th><th>Column B</th><th>Column C</th><th>Column D</th><th>Column E</th><th>Column F</th><th>Column G</th><th>Column H</th><th>Column I</th>
+                                        <th style="color:#ffffff;background:#1e293b;">Column A</th><th style="color:#ffffff;background:#1e293b;">Column B</th><th style="color:#ffffff;background:#1e293b;">Column C</th><th style="color:#ffffff;background:#1e293b;">Column D</th><th style="color:#ffffff;background:#1e293b;">Column E</th><th style="color:#ffffff;background:#1e293b;">Column F</th><th style="color:#ffffff;background:#1e293b;">Column G</th><th style="color:#ffffff;background:#1e293b;">Column H</th><th style="color:#ffffff;background:#1e293b;">Column I</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr class="fw-bold bg-light">
-                                        <td>Number</td><td>Question</td><td>Diagram</td><td>Option A</td><td>Option B</td><td>Option C</td><td>Option D</td><td>Option E</td><td>Answer</td>
+                                    <tr class="fw-bold" style="background:#dbeafe;">
+                                        <td style="color:#1e3a8a;">Number</td><td style="color:#1e3a8a;">Question</td><td style="color:#1e3a8a;">Diagram</td><td style="color:#1e3a8a;">Option A</td><td style="color:#1e3a8a;">Option B</td><td style="color:#1e3a8a;">Option C</td><td style="color:#1e3a8a;">Option D</td><td style="color:#1e3a8a;">Option E</td><td style="color:#1e3a8a;">Answer</td>
                                     </tr>
-                                    <tr>
-                                        <td>1</td><td>What is the normal heart rate?</td><td><em>(paste image)</em></td><td>60-100 bpm</td><td>40-60 bpm</td><td>100-120 bpm</td><td>120-140 bpm</td><td><em>(empty)</em></td><td>A</td>
+                                    <tr style="background:#ffffff;">
+                                        <td style="color:#1e293b;">1</td><td style="color:#1e293b;">What is the normal heart rate?</td><td style="color:#1e293b;"><em>(paste image)</em></td><td style="color:#1e293b;">60-100 bpm</td><td style="color:#1e293b;">40-60 bpm</td><td style="color:#1e293b;">100-120 bpm</td><td style="color:#1e293b;">120-140 bpm</td><td style="color:#1e293b;"><em>(empty)</em></td><td style="color:#1e293b;">A</td>
                                     </tr>
-                                    <tr>
-                                        <td>2</td><td>Which organ produces insulin?</td><td><em>(paste image)</em></td><td>Liver</td><td>Pancreas</td><td>Kidney</td><td>Spleen</td><td>Heart</td><td>B</td>
+                                    <tr style="background:#f8fafc;">
+                                        <td style="color:#1e293b;">2</td><td style="color:#1e293b;">Which organ produces insulin?</td><td style="color:#1e293b;"><em>(paste image)</em></td><td style="color:#1e293b;">Liver</td><td style="color:#1e293b;">Pancreas</td><td style="color:#1e293b;">Kidney</td><td style="color:#1e293b;">Spleen</td><td style="color:#1e293b;">Heart</td><td style="color:#1e293b;">B</td>
                                     </tr>
                                 </tbody>
                             </table>

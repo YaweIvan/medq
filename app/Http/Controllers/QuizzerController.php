@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Quiz;
 use App\Models\Question;
 use App\Models\QuizAttempt;
+use App\Models\QuizSound;
 use App\Models\Subject;
 use App\Services\QuestionAttemptResolver;
 use Illuminate\Http\Request;
@@ -237,8 +238,13 @@ class QuizzerController extends Controller
             ->count();
 
         $serverNow = now();
+        $soundUrls = QuizSound::whereIn('sound_type', ['correct', 'incorrect', 'timer', 'warning'])
+            ->get()
+            ->keyBy('sound_type')
+            ->map(fn ($sound) => asset($sound->file_path))
+            ->all();
 
-        return view('quizzer.question', compact('question', 'questionNumber', 'attempt', 'serverNow'));
+        return view('quizzer.question', compact('question', 'questionNumber', 'attempt', 'serverNow', 'soundUrls'));
     }
 
     public function submitAnswer(Request $request, QuestionAttemptResolver $resolver)

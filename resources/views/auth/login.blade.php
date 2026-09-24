@@ -9,20 +9,17 @@
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <style>
         body {
-            background: #f8fafc;
             min-height: 100vh;
             display: flex;
             align-items: center;
         }
         .auth-card {
-            background: white;
-            border: 1px solid #e2e8f0;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
     </style>
 </head>
-<body>
+<body class="auth-body">
+    <script>(function(){if(localStorage.getItem('medq-theme')==='light'){document.body.classList.add('light-theme');}})();</script>
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-lg-5 col-md-7 col-sm-9">
@@ -31,7 +28,7 @@
                         <div class="mb-3">
                             <i class="fas fa-stethoscope text-primary" style="font-size: 3rem;"></i>
                         </div>
-                        <h3 class="fw-bold text-dark">Welcome Back</h3>
+                        <h3 class="fw-bold text-white">Welcome Back</h3>
                         <p class="text-muted">Sign in to your MedQ account</p>
                         <a href="{{ route('welcome') }}" class="btn btn-outline-secondary btn-sm">
                             <i class="fas fa-home me-1"></i> Back to Home

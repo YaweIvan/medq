@@ -30,8 +30,8 @@
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div class="text-center flex-grow-1">
-                    <h2 class="fw-bold text-dark mb-2">{{ $quiz->title }}</h2>
-                    <p class="text-muted">Select a subject to begin</p>
+                    <h2 class="fw-bold text-white mb-2">{{ $quiz->title }}</h2>
+                    <p class="text-white">Select a subject to begin</p>
                 </div>
                 <a href="{{ route('quizzer.dashboard') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-2"></i>Back to Quizzes
@@ -50,7 +50,7 @@
                                 <div class="mb-2">
                                     <i class="fas fa-book text-info" style="font-size: 2rem;"></i>
                                 </div>
-                                <h5 class="card-title text-dark mb-2">{{ $subject->name }}</h5>
+                                <h5 class="card-title text-white mb-2">{{ $subject->name }}</h5>
                                 <p class="card-text mb-3">
                                     <span class="badge bg-primary">{{ $subject->available_questions }} questions available</span>
                                     <br><span class="badge bg-info mt-2">{{ $subject->max_questions ?? 5 }} questions per attempt ({{ $subject->marks_per_question ?? 1 }} marks each)</span>

@@ -9,20 +9,17 @@
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <style>
         body {
-            background: #f8fafc;
             min-height: 100vh;
             display: flex;
             align-items: center;
         }
         .auth-card {
-            background: white;
-            border: 1px solid #e2e8f0;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
     </style>
 </head>
-<body>
+<body class="auth-body">
+    <script>(function(){if(localStorage.getItem('medq-theme')==='light'){document.body.classList.add('light-theme');}})();</script>
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-lg-6 col-md-8 col-sm-10">

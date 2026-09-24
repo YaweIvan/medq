@@ -9,22 +9,25 @@
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <style>
         .correct-row {
-            background-color: #d1fae5 !important;
+            background-color: rgba(34, 197, 94, 0.18) !important;
         }
         .incorrect-row {
-            background-color: #fee2e2 !important;
+            background-color: rgba(239, 68, 68, 0.18) !important;
         }
         .unanswered-row {
-            background-color: #fef9c3 !important;
+            background-color: rgba(234, 179, 8, 0.18) !important;
         }
         .correct-row td {
-            background-color: #d1fae5 !important;
+            background-color: rgba(34, 197, 94, 0.18) !important;
+            color: #e2e8f0 !important;
         }
         .incorrect-row td {
-            background-color: #fee2e2 !important;
+            background-color: rgba(239, 68, 68, 0.18) !important;
+            color: #e2e8f0 !important;
         }
         .unanswered-row td {
-            background-color: #fef9c3 !important;
+            background-color: rgba(234, 179, 8, 0.18) !important;
+            color: #e2e8f0 !important;
         }
         .question-row {
             cursor: pointer;
@@ -38,29 +41,34 @@
             outline-offset: -2px;
         }
         .option-card {
-            border: 2px solid #dee2e6;
+            border: 1px solid rgba(255,255,255,0.18);
             border-radius: 8px;
             padding: 10px 16px;
             margin-bottom: 8px;
-            background: #fff;
+            background: rgba(255,255,255,0.07);
+            color: #f1f5f9;
             transition: border-color 0.15s;
         }
         .option-card.option-correct {
             border-color: #22c55e;
-            background-color: #f0fdf4;
+            background-color: rgba(34, 197, 94, 0.18);
+            color: #86efac;
         }
         .option-card.option-selected-wrong {
             border-color: #ef4444;
-            background-color: #fef2f2;
+            background-color: rgba(239, 68, 68, 0.18);
+            color: #fca5a5;
         }
         .option-card.option-selected-correct {
             border-color: #22c55e;
-            background-color: #dcfce7;
+            background-color: rgba(34, 197, 94, 0.25);
+            color: #86efac;
         }
         .option-label {
             font-weight: 700;
             margin-right: 8px;
             font-size: 1rem;
+            color: #f1f5f9;
         }
         #question-detail {
             display: none;
@@ -75,8 +83,8 @@
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <h2 class="fw-bold text-dark mb-1">{{ $user->name }} - {{ $quiz->title }}</h2>
-                    <p class="text-muted mb-0">{{ $subject->name }} - Review Answers</p>
+                    <h2 class="fw-bold text-white mb-1">{{ $user->name }} - {{ $quiz->title }}</h2>
+                    <p class="text-white mb-0">{{ $subject->name }} - Review Answers</p>
                 </div>
                 <a href="{{ route('admin.subject.analysis', [$quiz->id, $subject->id]) }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-2"></i>Back to Rankings
@@ -139,10 +147,10 @@
                     <button type="button" class="btn-close" onclick="document.getElementById('question-detail').style.display='none'; document.querySelectorAll('.question-row').forEach(r=>r.classList.remove('selected-row'));"></button>
                 </div>
                 <div class="card-body">
-                    <p class="fw-semibold fs-5 mb-4" id="detail-question"></p>
+                    <p class="fw-semibold fs-5 mb-4" id="detail-question" style="color:#f1f5f9;"></p>
                     <div id="detail-options"></div>
                 </div>
-                <div class="card-footer text-muted small" id="detail-footer"></div>
+                <div class="card-footer small" id="detail-footer" style="color:#86efac;background:rgba(34,197,94,0.12);border-top:1px solid rgba(34,197,94,0.30);"></div>
             </div>
 
         </div>

@@ -138,14 +138,14 @@
     @include('components.quizzer_sidebar')
 
     <div class="question-timer" id="timerContainer" style="display: none;">
-        <div style="font-size: 0.7rem; color: #6b7280; margin-bottom: 0.25rem;">Time Left</div>
+        <div style="font-size: 0.7rem; color: #ffffff; margin-bottom: 0.25rem;">Time Left</div>
         <div class="question-timer-display" id="questionTimer">--</div>
     </div>
 
     <div class="main-content">
         <div class="container-fluid">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="fw-bold text-dark">Question #{{ $questionNumber }}</h2>
+                <h2 class="fw-bold text-white">Question #{{ $questionNumber }}</h2>
                 <a href="{{ route('quizzer.question.grid', [$question->quiz_id, $question->subject_id]) }}" class="btn btn-outline-primary">
                     <i class="fas fa-arrow-left me-2"></i>Back to Grid
                 </a>
@@ -202,11 +202,229 @@ document.addEventListener('DOMContentLoaded', function() {
     const gridUrl    = '{{ route("quizzer.question.grid", [$question->quiz_id, $question->subject_id]) }}';
     const submitUrl  = '{{ route("quizzer.submit.answer") }}';
     const csrfToken  = '{{ csrf_token() }}';
+    const soundUrls  = @json($soundUrls);
 
     // --- Server-driven timer (4.2) ---
     const expiresAt = new Date('{{ $attempt->expires_at->toISOString() }}').getTime();
     const serverNow = new Date('{{ $serverNow->toISOString() }}').getTime();
     const clockSkew = serverNow - Date.now();
+
+    let audioContext = null;
+    let timerAudio = null;
+    let timerGeneratedInterval = null;
+    let warningPlayed = false;
+    let audioPrimed = false;
+    let timerSoundPending = false;
+
+    function getAudioContext() {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().catch(() => {});
+        }
+
+        return audioContext;
+    }
+
+    function primeAudio() {
+        if (audioPrimed) {
+            return;
+        }
+
+        audioPrimed = true;
+        try {
+            const context = getAudioContext();
+            context.resume().catch(() => {}).finally(() => {
+                if (timerSoundPending) {
+                    timerSoundPending = false;
+                    startTimerSound();
+                }
+            });
+        } catch (error) {
+        }
+    }
+
+    function playAudioUrl(url) {
+        const audio = new Audio(url);
+        audio.preload = 'auto';
+        return audio.play();
+    }
+
+    function stopTimerSound() {
+        if (timerAudio) {
+            timerAudio.pause();
+            timerAudio.currentTime = 0;
+            timerAudio = null;
+        }
+
+        if (timerGeneratedInterval) {
+            clearInterval(timerGeneratedInterval);
+            timerGeneratedInterval = null;
+        }
+    }
+
+    function playGeneratedTick() {
+        const context = getAudioContext();
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(context.destination);
+
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(760, context.currentTime);
+        gainNode.gain.setValueAtTime(0.02, context.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.08);
+
+        oscillator.start(context.currentTime);
+        oscillator.stop(context.currentTime + 0.08);
+    }
+
+    function startGeneratedTimerSound() {
+        if (timerGeneratedInterval) {
+            return;
+        }
+
+        playGeneratedTick();
+        timerGeneratedInterval = setInterval(playGeneratedTick, 1000);
+    }
+
+    function startTimerSound() {
+        if (timerAudio || timerGeneratedInterval) {
+            return;
+        }
+
+        if (soundUrls.timer) {
+            timerAudio = new Audio(soundUrls.timer);
+            timerAudio.loop = true;
+            timerAudio.volume = 0.7;
+            timerSoundPending = true;
+            timerAudio.play().then(() => {
+                timerSoundPending = false;
+            }).catch(() => {
+                timerAudio = null;
+                timerSoundPending = true;
+                // Fall through to generated sound on next primeAudio call
+            });
+            return;
+        }
+
+        if (!audioContext || audioContext.state !== 'running') {
+            timerSoundPending = true;
+            // Try to prime the context immediately — browsers sometimes allow it
+            try {
+                const ctx = getAudioContext();
+                ctx.resume().then(() => {
+                    if (timerSoundPending && ctx.state === 'running') {
+                        timerSoundPending = false;
+                        startGeneratedTimerSound();
+                    }
+                }).catch(() => {});
+            } catch (e) {}
+            return;
+        }
+
+        timerSoundPending = false;
+        startGeneratedTimerSound();
+    }
+
+    function playGeneratedCorrectSound() {
+        const audioContext = getAudioContext();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
+
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.4);
+    }
+
+    function playGeneratedIncorrectSound() {
+        const audioContext = getAudioContext();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.setValueAtTime(392.00, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.15);
+
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    }
+
+    function playGeneratedWarningSound() {
+        const audioContext = getAudioContext();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(988, audioContext.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.12, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    }
+
+    function playWarningSound() {
+        if (warningPlayed) {
+            return;
+        }
+
+        warningPlayed = true;
+
+        if (soundUrls.warning) {
+            playAudioUrl(soundUrls.warning).catch(() => {
+                playGeneratedWarningSound();
+            });
+            return;
+        }
+
+        playGeneratedWarningSound();
+    }
+
+    function playCorrectSound() {
+        if (soundUrls.correct) {
+            playAudioUrl(soundUrls.correct).catch(() => {
+                playGeneratedCorrectSound();
+            });
+            return;
+        }
+
+        playGeneratedCorrectSound();
+    }
+
+    function playIncorrectSound() {
+        if (soundUrls.incorrect) {
+            playAudioUrl(soundUrls.incorrect).catch(() => {
+                playGeneratedIncorrectSound();
+            });
+            return;
+        }
+
+        playGeneratedIncorrectSound();
+    }
 
     function remainingMs() {
         return expiresAt - (Date.now() + clockSkew);
@@ -217,6 +435,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedAnswer = null;
 
     document.getElementById('timerContainer').style.display = 'block';
+    startTimerSound();
+    document.addEventListener('pointerdown', primeAudio, { once: true });
+    document.addEventListener('keydown', primeAudio, { once: true });
 
     timerInterval = setInterval(() => {
         const ms          = remainingMs();
@@ -229,10 +450,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (displaySecs <= 10) {
             timerEl.classList.add('danger');
             containerEl.classList.add('danger');
+
+            if (!warningPlayed) {
+                playWarningSound();
+            }
         }
 
         if (ms <= 0) {
             clearInterval(timerInterval);
+            stopTimerSound();
             if (!hasSubmitted) {
                 hasSubmitted = true;
                 lockUI();
@@ -246,6 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
         option.addEventListener('click', function () {
             if (hasSubmitted) return;
 
+            primeAudio();
             options.forEach(o => o.classList.remove('selected'));
             this.classList.add('selected');
             selectedAnswer = this.dataset.answer;
@@ -259,6 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (hasSubmitted || !selectedAnswer) return;
         hasSubmitted = true;
         clearInterval(timerInterval);
+        stopTimerSound();
         lockUI();
         fireSubmit(selectedAnswer);
     });
@@ -284,6 +512,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             const correctAnswer = data.correct_answer;
+
+            if (data.is_correct) {
+                playCorrectSound();
+            } else {
+                playIncorrectSound();
+            }
 
             if (answer) {
                 const selectedEl = document.querySelector(`[data-answer="${answer}"]`);

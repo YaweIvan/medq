@@ -12,12 +12,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('questions', function (Blueprint $table) {
-            $table->string('option_e')->nullable()->after('option_d');
-        });
-        
-        // Update the correct_answer enum to include 'E'
-        DB::statement("ALTER TABLE questions MODIFY correct_answer ENUM('A', 'B', 'C', 'D', 'E')");
+        if (!Schema::hasColumn('questions', 'option_e')) {
+            Schema::table('questions', function (Blueprint $table) {
+                $table->string('option_e')->nullable()->after('option_d');
+            });
+        }
+
+        if (DB::getDriverName() === 'mysql') {
+            // Update the correct_answer enum to include 'E'
+            DB::statement("ALTER TABLE questions MODIFY correct_answer ENUM('A', 'B', 'C', 'D', 'E')");
+        }
     }
 
     /**
@@ -25,11 +29,15 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('questions', function (Blueprint $table) {
-            $table->dropColumn('option_e');
-        });
-        
-        // Revert the correct_answer enum back to A-D only
-        DB::statement("ALTER TABLE questions MODIFY correct_answer ENUM('A', 'B', 'C', 'D')");
+        if (Schema::hasColumn('questions', 'option_e')) {
+            Schema::table('questions', function (Blueprint $table) {
+                $table->dropColumn('option_e');
+            });
+        }
+
+        if (DB::getDriverName() === 'mysql') {
+            // Revert the correct_answer enum back to A-D only
+            DB::statement("ALTER TABLE questions MODIFY correct_answer ENUM('A', 'B', 'C', 'D')");
+        }
     }
 };

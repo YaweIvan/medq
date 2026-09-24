@@ -30,6 +30,7 @@
             @endif
         @endif
         <span class="me-3 d-none d-sm-inline">Welcome, {{ auth()->user()->name }}</span>
+        <button id="navThemeToggle" onclick="toggleTheme()" title="Toggle theme" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.30);border-radius:50%;width:34px;height:34px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;margin-right:0.5rem;transition:all 0.2s ease;">🌙</button>
         <form method="POST" action="{{ route('logout') }}" class="d-inline">
             @csrf
             <button type="submit" class="btn btn-outline-light btn-sm">
@@ -42,5 +43,27 @@
 <script>
 function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('show');
+}
+
+// ── Theme persistence ──────────────────────────────────────────
+(function () {
+    if (localStorage.getItem('medq-theme') === 'light') {
+        document.body.classList.add('light-theme');
+    }
+    _updateNavToggle();
+})();
+
+function _updateNavToggle() {
+    var btn = document.getElementById('navThemeToggle');
+    if (!btn) return;
+    var isLight = document.body.classList.contains('light-theme');
+    btn.textContent = isLight ? '🌙' : '☀️';
+    btn.title = isLight ? 'Switch to Dark theme' : 'Switch to Light theme';
+}
+
+function toggleTheme() {
+    var isLight = document.body.classList.toggle('light-theme');
+    localStorage.setItem('medq-theme', isLight ? 'light' : 'dark');
+    _updateNavToggle();
 }
 </script>
