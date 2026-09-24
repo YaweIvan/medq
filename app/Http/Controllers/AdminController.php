@@ -305,8 +305,10 @@ class AdminController extends Controller
                     
                     // Create case-insensitive column mapping
                     foreach ($data as $index => $header) {
-                        $normalizedHeader = strtolower(trim($header));
-                        $columnMapping[$normalizedHeader] = $index;
+                        $normalizedHeader = $this->normalizeImportHeader($header);
+                        if ($normalizedHeader !== '') {
+                            $columnMapping[$normalizedHeader] = $index;
+                        }
                     }
                     
                     // Determine column indices (try both header names and fixed positions as fallback)
@@ -470,14 +472,29 @@ class AdminController extends Controller
     /**
      * Get column headers from first row and make them case-insensitive
      */
+    private function normalizeImportHeader($value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+
+        $normalized = preg_replace('/^\xEF\xBB\xBF/', '', $value);
+        $normalized = str_replace(['_', '-', ' '], '', strtolower(trim((string) $normalized)));
+        $normalized = preg_replace('/\s+/', '', $normalized);
+
+        return trim($normalized);
+    }
+
     private function getColumnMapping($worksheet)
     {
         $headerRow = $worksheet->rangeToArray('A1:H1', NULL, TRUE, FALSE)[0];
         $mapping = [];
         
         foreach ($headerRow as $index => $header) {
-            $normalizedHeader = strtolower(trim($header));
-            $mapping[$normalizedHeader] = $index;
+            $normalizedHeader = $this->normalizeImportHeader($header);
+            if ($normalizedHeader !== '') {
+                $mapping[$normalizedHeader] = $index;
+            }
         }
         
         return $mapping;
@@ -489,8 +506,8 @@ class AdminController extends Controller
     private function getColumnIndex($mapping, ...$possibleNames)
     {
         foreach ($possibleNames as $name) {
-            $normalized = strtolower(trim($name));
-            if (isset($mapping[$normalized])) {
+            $normalized = $this->normalizeImportHeader((string) $name);
+            if ($normalized !== '' && isset($mapping[$normalized])) {
                 return $mapping[$normalized];
             }
         }

@@ -30,7 +30,7 @@
     <hr>
     
     <div class="sidebar-section">
-        <div class="sidebar-title">Active Quizzes</div>
+        <div class="sidebar-title" style="color: #ffffff;">Active Quizzes</div>
         @php
             $activeQuizzes = auth()->user()->quizzes()->select('quizzes.*')->where('is_active', true)->get();
         @endphp

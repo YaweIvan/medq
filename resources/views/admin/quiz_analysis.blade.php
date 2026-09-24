@@ -16,8 +16,8 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <h2 class="fw-bold text-dark mb-1">{{ $quiz->title }} - Analysis</h2>
-                    <p class="text-muted mb-0">Select a subject to view rankings</p>
+                    <h2 class="fw-bold text-white mb-1">{{ $quiz->title }} - Analysis</h2>
+                    <p class="text-white mb-0">Select a subject to view rankings</p>
                 </div>
                 <a href="{{ route('admin.statistics') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-2"></i>Back to Statistics
@@ -41,7 +41,7 @@
             @if(count($rankings) > 0)
             <div class="mt-5">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="fw-bold text-dark mb-0">Overall Quiz Rankings</h3>
+                    <h3 class="fw-bold text-white mb-0">Overall Quiz Rankings</h3>
                     <a href="{{ route('admin.quiz.rankings.export', $quiz->id) }}" class="btn btn-success">
                         <i class="fas fa-file-excel me-2"></i>Export to Excel
                     </a>
@@ -50,15 +50,15 @@
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover mb-0">
-                                <thead class="bg-light">
+                                <thead class="bg-light" style="background:#1e3a8a !important;">
                                     <tr>
-                                        <th class="px-4 py-3" style="width: 80px;">Position</th>
-                                        <th class="px-4 py-3">Student Name</th>
+                                        <th class="px-4 py-3" style="width: 80px; color:#93c5fd;">Position</th>
+                                        <th class="px-4 py-3" style="color:#93c5fd;">Student Name</th>
                                         @foreach($subjects as $subject)
-                                            <th class="px-4 py-3 text-center">{{ $subject->name }}</th>
+                                            <th class="px-4 py-3 text-center" style="color:#93c5fd;">{{ $subject->name }}</th>
                                         @endforeach
-                                        <th class="px-4 py-3 text-center">Total</th>
-                                        <th class="px-4 py-3 text-center">Percentage</th>
+                                        <th class="px-4 py-3 text-center" style="color:#93c5fd;">Total</th>
+                                        <th class="px-4 py-3 text-center" style="color:#93c5fd;">Percentage</th>
                                     </tr>
                                 </thead>
                                 <tbody>

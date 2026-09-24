@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MUMSA MedQ - Loading</title>
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <style>
         body {
             margin: 0;
             padding: 0;
-            background: #ffffff;
+            background: #0d1117;
             height: 100vh;
             display: flex;
             align-items: center;
@@ -25,14 +26,14 @@
             width: 180px;
             height: 180px;
             border-radius: 50%;
-            border: 4px solid #93c5fd;
-            background: white;
+            border: 4px solid rgba(147, 197, 253, 0.40);
+            background: rgba(255, 255, 255, 0.08);
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 30px;
             animation: pulse 2s infinite;
-            box-shadow: 0 4px 20px rgba(147,197,253,0.35);
+            box-shadow: 0 4px 20px rgba(147,197,253,0.20);
             overflow: hidden;
             flex-shrink: 0;
         }
@@ -44,7 +45,7 @@
         }
         
         .branding-text {
-            color: #1e293b;
+            color: #f1f5f9;
             font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 15px;
@@ -53,7 +54,7 @@
         }
         
         .tagline {
-            color: #64748b;
+            color: rgba(203, 213, 225, 0.85);
             font-size: 0.95rem;
             margin-bottom: 40px;
             text-shadow: none;
@@ -93,9 +94,16 @@
             0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
             40% { transform: scale(1); opacity: 1; }
         }
+
+        /* ── Light theme overrides for splash page ── */
+        body.light-theme                  { background: #f8fafc !important; }
+        body.light-theme .logo-wrapper    { background: #ffffff !important; border-color: #93c5fd !important; box-shadow: 0 4px 20px rgba(147,197,253,0.20) !important; }
+        body.light-theme .branding-text   { color: #1e293b !important; }
+        body.light-theme .tagline         { color: #64748b !important; }
     </style>
 </head>
 <body>
+    <script>(function(){if(localStorage.getItem('medq-theme')==='light'){document.body.classList.add('light-theme');}})();</script>
     <div class="splash-container">
         <div class="logo-wrapper">
             <img src="{{ $splashLogo ? asset('storage/' . $splashLogo) : asset('images/mums.png') }}" alt="MUMSA Logo" class="mumsa-logo">
