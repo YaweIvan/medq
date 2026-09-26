@@ -15,6 +15,7 @@ class QuizSound extends Model
         'file_path',
         'mime_type',
         'file_size',
+        'volume',
         'uploaded_by',
     ];
 

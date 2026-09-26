@@ -61,7 +61,17 @@ class QuestionAttemptResolver
      */
     public function cascadeGlobalLockIfNeeded(QuizAttempt $lockedAttempt): void
     {
-        $quiz = Quiz::find($lockedAttempt->quiz_id);
+        // Cache the quiz per quiz_id within this request so repeated calls
+        // (e.g. resolving multiple expired attempts in one transaction) only
+        // hit the DB once instead of once per attempt.
+        static $quizCache = [];
+
+        $quizId = $lockedAttempt->quiz_id;
+        if (!array_key_exists($quizId, $quizCache)) {
+            $quizCache[$quizId] = Quiz::find($quizId);
+        }
+        $quiz = $quizCache[$quizId];
+
         if (!$quiz || !$quiz->isGlobalLock()) {
             return;
         }

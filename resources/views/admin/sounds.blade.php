@@ -150,7 +150,8 @@
                                                 </div>
                                             </div>
                                         @else
-                            <div class="alert alert-sound-warning">
+                                            <div class="alert alert-sound-warning">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>No correct sound uploaded. Using default generated sound.
                                             </div>
                                         @endif
 
@@ -164,7 +165,6 @@
                                                        accept="audio/mpeg,audio/wav,audio/ogg" required>
                                                 <small class="text-muted">MP3, WAV, or OGG format (Max: 2MB)</small>
                                             </div>
-                                            
                                             <button type="submit" class="btn btn-sound-primary w-100">
                                                 <i class="fas fa-upload me-2"></i>{{ $correctSound ? 'Replace' : 'Upload' }} Correct Sound
                                             </button>
@@ -216,7 +216,8 @@
                                                 </div>
                                             </div>
                                         @else
-                            <div class="alert alert-sound-warning">
+                                            <div class="alert alert-sound-warning">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>No incorrect sound uploaded. Using default generated sound.
                                             </div>
                                         @endif
 
@@ -230,7 +231,6 @@
                                                        accept="audio/mpeg,audio/wav,audio/ogg" required>
                                                 <small class="text-muted">MP3, WAV, or OGG format (Max: 2MB)</small>
                                             </div>
-                                            
                                             <button type="submit" class="btn btn-sound-secondary w-100">
                                                 <i class="fas fa-upload me-2"></i>{{ $incorrectSound ? 'Replace' : 'Upload' }} Incorrect Sound
                                             </button>
@@ -297,7 +297,6 @@
                                                        accept="audio/mpeg,audio/wav,audio/ogg" required>
                                                 <small class="text-muted">MP3, WAV, or OGG (Max: 2MB). Loops continuously.</small>
                                             </div>
-                                            
                                             <button type="submit" class="btn btn-sound-primary w-100">
                                                 <i class="fas fa-upload me-2"></i>{{ $timerSound ? 'Replace' : 'Upload' }} Timer Sound
                                             </button>
@@ -364,7 +363,6 @@
                                                        accept="audio/mpeg,audio/wav,audio/ogg" required>
                                                 <small class="text-muted">MP3, WAV, or OGG (Max: 2MB). Plays once at 10s.</small>
                                             </div>
-                                            
                                             <button type="submit" class="btn btn-sound-secondary w-100">
                                                 <i class="fas fa-upload me-2"></i>{{ $warningSound ? 'Replace' : 'Upload' }} Warning Sound
                                             </button>
@@ -404,5 +402,44 @@
     </div>
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+    // Listen to the native browser volume knob on each audio player and persist
+    // the new volume to the DB so question.blade.php picks it up system-wide.
+    (function () {
+        const map = {
+            'correctAudioPreview':   'correct',
+            'incorrectAudioPreview': 'incorrect',
+            'timerAudioPreview':     'timer',
+            'warningAudioPreview':   'warning',
+        };
+
+        const csrf    = '{{ csrf_token() }}';
+        const saveUrl = '{{ route("admin.update-sound-volume") }}';
+
+        let saveTimer = null; // debounce — don't spam on every tiny drag tick
+
+        Object.entries(map).forEach(function([id, soundType]) {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            el.addEventListener('volumechange', function () {
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(function () {
+                    fetch(saveUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrf,
+                        },
+                        body: JSON.stringify({
+                            sound_type: soundType,
+                            volume: parseFloat(el.volume.toFixed(2)),
+                        }),
+                    }).catch(function () {});
+                }, 400);
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

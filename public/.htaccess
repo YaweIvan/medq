@@ -5,6 +5,11 @@
 
     RewriteEngine On
 
+    # Tell Laravel the request is HTTPS — InfinityFree terminates SSL at the edge
+    # so PHP sees plain HTTP even though the browser is on HTTPS.
+    # Without this, Laravel redirects http→https forever (ERR_TOO_MANY_REDIRECTS).
+    SetEnvIf X-Forwarded-Proto "https" HTTPS=on
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

@@ -50,6 +50,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::get('/sounds', [AdminController::class, 'sounds'])->name('sounds');
     Route::post('/upload-sound', [AdminController::class, 'uploadSound'])->name('upload-sound');
     Route::delete('/delete-sound', [AdminController::class, 'deleteSound'])->name('delete-sound');
+    Route::post('/update-sound-volume', [AdminController::class, 'updateSoundVolume'])->name('update-sound-volume');
     Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
     Route::post('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
     Route::post('/settings/reset', [AdminController::class, 'resetSettings'])->name('settings.reset');

@@ -1474,3 +1474,13 @@ body.light-theme ::-webkit-scrollbar-thumb:hover { background: #94a3b8 !importan
 body.light-theme .text-white {
     color: #1e293b !important;
 }
+
+/* Dark theme — modal close button (×) white */
+.btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Light theme — restore default dark × */
+body.light-theme .btn-close {
+    filter: none;
+}

@@ -48,13 +48,18 @@ class AdminController extends Controller
 
     public function settings()
     {
+        // Batch: 1 query instead of 6 individual Setting::get() calls
+        $raw = Setting::whereIn('key', [
+            'splash_logo', 'welcome_logo', 'org_name', 'org_tagline', 'primary_color', 'secondary_color',
+        ])->pluck('value', 'key');
+
         $settings = [
-            'splash_logo'     => Setting::get('splash_logo'),
-            'welcome_logo'    => Setting::get('welcome_logo'),
-            'org_name'        => Setting::get('org_name', 'MAKERERE UNIVERSITY MEDICAL STUDENTS ASSOCIATION (MUMSA)'),
-            'org_tagline'     => Setting::get('org_tagline', 'All Rights Reserved © 2026'),
-            'primary_color'   => Setting::get('primary_color', '#93c5fd'),
-            'secondary_color' => Setting::get('secondary_color', '#bfdbfe'),
+            'splash_logo'     => $raw->get('splash_logo'),
+            'welcome_logo'    => $raw->get('welcome_logo'),
+            'org_name'        => $raw->get('org_name', 'MAKERERE UNIVERSITY MEDICAL STUDENTS ASSOCIATION (MUMSA)'),
+            'org_tagline'     => $raw->get('org_tagline', 'All Rights Reserved © 2026'),
+            'primary_color'   => $raw->get('primary_color', '#93c5fd'),
+            'secondary_color' => $raw->get('secondary_color', '#bfdbfe'),
         ];
         return view('admin.settings', compact('settings'));
     }
@@ -881,9 +886,7 @@ class AdminController extends Controller
         $maxPts = $maxQ * $marks;
 
         $rankings = QuizAttempt::where('quiz_id', $quizId)
-            ->whereHas('question', function($query) use ($subjectId) {
-                $query->where('subject_id', $subjectId);
-            })
+            ->where('subject_id', $subjectId)
             ->whereNotNull('submitted_at')
             ->selectRaw('user_id, COUNT(*) as total, SUM(is_correct) as correct, MAX(submitted_at) as last_attempt_at')
             ->groupBy('user_id')
@@ -922,9 +925,7 @@ class AdminController extends Controller
 
         $attempts = QuizAttempt::where('user_id', $userId)
             ->where('quiz_id', $quizId)
-            ->whereHas('question', function($query) use ($subjectId) {
-                $query->where('subject_id', $subjectId);
-            })
+            ->where('subject_id', $subjectId)
             ->whereNotNull('submitted_at')
             ->with(['question' => function($q) {
                 $q->select('id', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'correct_answer');
@@ -1025,14 +1026,9 @@ class AdminController extends Controller
     public function dashboardStatsApi()
     {
         $stats = $this->dashboardStats->getStatistics();
-        
-        // Calculate from actual database records
-        $totalQuestions = Question::count();
-        $totalQuizzes = Quiz::count();
-        $totalUsers = User::where('role', 'quizzer')->count();
-        $pendingApprovals = User::where('role', 'quizzer')->where('is_approved', false)->count();
-        
-        // Get actual user performance from attempts
+
+        // Use values already computed and cached by DashboardStatisticsService
+        // instead of firing 4 extra COUNT queries that duplicate the same work
         $userStats = User::where('role', 'quizzer')
             ->where('is_approved', true)
             ->withCount([
@@ -1058,11 +1054,11 @@ class AdminController extends Controller
             ->values();
 
         return response()->json([
-            'total_questions' => $totalQuestions,
-            'total_quizzes' => $totalQuizzes,
-            'total_users' => $totalUsers,
-            'pending_approvals' => $pendingApprovals,
-            'top3' => $userStats
+            'total_questions'  => $stats['total_questions'],
+            'total_quizzes'    => $stats['total_quizzes'],
+            'total_users'      => $stats['total_quizzers'],
+            'pending_approvals'=> $stats['pending_quizzers'],
+            'top3'             => $userStats,
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
     
@@ -1274,10 +1270,12 @@ class AdminController extends Controller
             $request->validate([
                 'sound_type' => 'required|in:correct,incorrect,timer,warning',
                 'sound_file' => 'required|file|mimes:mp3,wav,ogg|max:2048', // Max 2MB
+                'volume'     => 'nullable|numeric|min:0|max:1',
             ]);
 
             $soundType = $request->sound_type;
-            $file = $request->file('sound_file');
+            $file      = $request->file('sound_file');
+            $volume    = $request->input('volume', 0.80);
             
             // Create sounds directory if it doesn't exist
             $soundsPath = public_path('sounds');
@@ -1298,8 +1296,8 @@ class AdminController extends Controller
 
             // Get the file extension and generate filename
             $extension = $file->getClientOriginalExtension();
-            $fileName = $soundType . '.' . $extension;
-            $filePath = 'sounds/' . $fileName;
+            $fileName  = $soundType . '.' . $extension;
+            $filePath  = 'sounds/' . $fileName;
             
             // Get file info BEFORE moving (important - file info not available after move)
             $mimeType = $file->getClientMimeType();
@@ -1312,10 +1310,11 @@ class AdminController extends Controller
             QuizSound::updateOrCreate(
                 ['sound_type' => $soundType],
                 [
-                    'file_name' => $fileName,
-                    'file_path' => $filePath,
-                    'mime_type' => $mimeType,
-                    'file_size' => $fileSize,
+                    'file_name'   => $fileName,
+                    'file_path'   => $filePath,
+                    'mime_type'   => $mimeType,
+                    'file_size'   => $fileSize,
+                    'volume'      => $volume,
                     'uploaded_by' => Auth::id(),
                 ]
             );
@@ -1335,6 +1334,27 @@ class AdminController extends Controller
             Log::error('Sound upload error: ' . $e->getMessage());
             return redirect()->route('admin.sounds')
                 ->with('audio_error', 'Error uploading sound: ' . $e->getMessage());
+        }
+    }
+
+    public function updateSoundVolume(Request $request)
+    {
+        try {
+            $request->validate([
+                'sound_type' => 'required|in:correct,incorrect,timer,warning',
+                'volume'     => 'required|numeric|min:0|max:1',
+            ]);
+
+            $updated = QuizSound::where('sound_type', $request->sound_type)
+                ->update(['volume' => $request->volume]);
+
+            if (!$updated) {
+                return response()->json(['success' => false, 'message' => 'No sound found for this type.'], 404);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Volume updated.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -1393,7 +1413,7 @@ class AdminController extends Controller
 
             // 6.1 — block if any student has an active attempt on these questions
             $hasActiveAttempt = QuizAttempt::where('quiz_id', $quizId)
-                ->whereHas('question', fn($q) => $q->where('subject_id', $subjectId))
+                ->where('subject_id', $subjectId)
                 ->where('locked', false)
                 ->whereNotNull('started_at')
                 ->exists();
@@ -1442,7 +1462,7 @@ class AdminController extends Controller
 
             // 6.1 — block if any student has an active attempt on these questions
             $hasActiveAttempt = QuizAttempt::where('quiz_id', $quizId)
-                ->whereHas('question', fn($q) => $q->where('subject_id', $subjectId))
+                ->where('subject_id', $subjectId)
                 ->where('locked', false)
                 ->whereNotNull('started_at')
                 ->exists();

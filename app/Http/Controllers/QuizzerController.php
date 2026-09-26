@@ -148,7 +148,8 @@ class QuizzerController extends Controller
 
     public function showQuestion(int $questionId, QuestionAttemptResolver $resolver)
     {
-        $question = Question::findOrFail($questionId);
+        // Eager-load quiz so $question->quiz doesn't fire a second query below
+        $question = Question::with('quiz')->findOrFail($questionId);
         $user     = Auth::user();
 
         if (!$user->quizzes->contains($question->quiz)) {
@@ -164,7 +165,8 @@ class QuizzerController extends Controller
             $resolver->resolveAllExpiredForQuiz($user->id, $quizId);
 
             // Step 2 — 7.3 global lock: block if ANY user has already locked this question
-            $quiz = Quiz::find($quizId);
+            // Reuse the already-loaded relationship instead of a fresh Quiz::find()
+            $quiz = $question->quiz;
             if ($quiz && $quiz->isGlobalLock()) {
                 $globallyLocked = QuizAttempt::where('question_id', $questionId)
                     ->where('locked', true)
@@ -241,7 +243,7 @@ class QuizzerController extends Controller
         $soundUrls = QuizSound::whereIn('sound_type', ['correct', 'incorrect', 'timer', 'warning'])
             ->get()
             ->keyBy('sound_type')
-            ->map(fn ($sound) => asset($sound->file_path))
+            ->map(fn ($sound) => ['url' => asset($sound->file_path), 'volume' => (float) $sound->volume])
             ->all();
 
         return view('quizzer.question', compact('question', 'questionNumber', 'attempt', 'serverNow', 'soundUrls'));

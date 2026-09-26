@@ -135,21 +135,30 @@ class StatisticsApiController extends Controller
 
     public function userStats($userId)
     {
+        // Use withCount to let the DB aggregate instead of loading all attempt
+        // rows into PHP memory just to call ->count() and ->where() on them
         $stats = Quiz::whereHas('users', function($q) use ($userId) {
                 $q->where('users.id', $userId);
             })
-            ->with(['attempts' => function($q) use ($userId) {
-                $q->where('user_id', $userId);
-            }])
+            ->withCount([
+                'attempts as total' => function($q) use ($userId) {
+                    $q->where('user_id', $userId);
+                },
+                'attempts as correct' => function($q) use ($userId) {
+                    $q->where('user_id', $userId)->where('is_correct', true);
+                },
+                'attempts as incorrect' => function($q) use ($userId) {
+                    $q->where('user_id', $userId)->where('is_correct', false);
+                },
+            ])
             ->get()
             ->map(function($quiz) {
-                $attempts = $quiz->attempts;
                 return [
-                    'quiz' => $quiz->title,
-                    'total' => $attempts->count(),
-                    'correct' => $attempts->where('is_correct', true)->count(),
-                    'incorrect' => $attempts->where('is_correct', false)->count(),
-                    'accuracy' => $attempts->count() > 0 ? round(($attempts->where('is_correct', true)->count() / $attempts->count()) * 100, 2) : 0
+                    'quiz'     => $quiz->title,
+                    'total'    => $quiz->total,
+                    'correct'  => $quiz->correct,
+                    'incorrect'=> $quiz->incorrect,
+                    'accuracy' => $quiz->total > 0 ? round(($quiz->correct / $quiz->total) * 100, 2) : 0
                 ];
             });
 

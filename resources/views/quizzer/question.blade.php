@@ -216,39 +216,60 @@ document.addEventListener('DOMContentLoaded', function() {
     let audioPrimed = false;
     let timerSoundPending = false;
 
+    // --- iOS / mobile audio unlock ---
+    // On mobile, AudioContext and Audio.play() are blocked until a real user gesture.
+    // We unlock BOTH in the same synchronous tap handler before any async work.
+    let _unlockedAudio = null; // a silent Audio node kept alive to satisfy iOS
+
     function getAudioContext() {
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-
         if (audioContext.state === 'suspended') {
             audioContext.resume().catch(() => {});
         }
-
         return audioContext;
     }
 
     function primeAudio() {
-        if (audioPrimed) {
-            return;
-        }
-
+        if (audioPrimed) return;
         audioPrimed = true;
+
         try {
+            // 1. Resume AudioContext synchronously inside the gesture handler
             const context = getAudioContext();
-            context.resume().catch(() => {}).finally(() => {
+            context.resume().catch(() => {});
+
+            // 2. Play a silent Audio node synchronously — this unlocks Audio.play()
+            //    for all future calls on iOS (must happen inside the gesture, not a callback)
+            if (!_unlockedAudio) {
+                _unlockedAudio = new Audio();
+                _unlockedAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAA' +
+                    'EAAQARoAAAIFAAEABgAIAGRhdGEAAAAAA==';
+                _unlockedAudio.volume = 0;
+                _unlockedAudio.play().catch(() => {});
+            }
+
+            // 3. Start timer sound — context may still be resuming so also try after it resolves
+            if (timerSoundPending) {
+                timerSoundPending = false;
+                startTimerSound();
+            }
+            context.resume().then(() => {
                 if (timerSoundPending) {
                     timerSoundPending = false;
                     startTimerSound();
                 }
-            });
-        } catch (error) {
-        }
+            }).catch(() => {});
+        } catch (e) {}
     }
 
-    function playAudioUrl(url) {
+    function playAudioUrl(url, volume) {
         const audio = new Audio(url);
         audio.preload = 'auto';
+        if (volume !== undefined) audio.volume = volume;
+        // On iOS, play() must be called after the unlock — if it fails, fall back
+        // to the generated Web Audio sound (caller handles the .catch())
         return audio.play();
     }
 
@@ -297,9 +318,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (soundUrls.timer) {
-            timerAudio = new Audio(soundUrls.timer);
+            timerAudio = new Audio(soundUrls.timer.url);
             timerAudio.loop = true;
-            timerAudio.volume = 0.7;
+            timerAudio.volume = soundUrls.timer.volume ?? 0.7;
             timerSoundPending = true;
             timerAudio.play().then(() => {
                 timerSoundPending = false;
@@ -395,7 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
         warningPlayed = true;
 
         if (soundUrls.warning) {
-            playAudioUrl(soundUrls.warning).catch(() => {
+            playAudioUrl(soundUrls.warning.url, soundUrls.warning.volume).catch(() => {
                 playGeneratedWarningSound();
             });
             return;
@@ -406,7 +427,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function playCorrectSound() {
         if (soundUrls.correct) {
-            playAudioUrl(soundUrls.correct).catch(() => {
+            playAudioUrl(soundUrls.correct.url, soundUrls.correct.volume).catch(() => {
                 playGeneratedCorrectSound();
             });
             return;
@@ -417,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function playIncorrectSound() {
         if (soundUrls.incorrect) {
-            playAudioUrl(soundUrls.incorrect).catch(() => {
+            playAudioUrl(soundUrls.incorrect.url, soundUrls.incorrect.volume).catch(() => {
                 playGeneratedIncorrectSound();
             });
             return;
@@ -437,7 +458,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('timerContainer').style.display = 'block';
     startTimerSound();
     document.addEventListener('pointerdown', primeAudio, { once: true });
-    document.addEventListener('keydown', primeAudio, { once: true });
+    document.addEventListener('touchstart',  primeAudio, { once: true });
+    document.addEventListener('keydown',     primeAudio, { once: true });
 
     timerInterval = setInterval(() => {
         const ms          = remainingMs();
